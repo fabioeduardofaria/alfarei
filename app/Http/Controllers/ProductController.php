@@ -26,7 +26,8 @@ class ProductController extends Controller
             'sku' => ['nullable', 'string', 'max:60', $skuRule], 'name' => ['required', 'string', 'max:150'],
             'type' => ['required', 'in:product,service'], 'base_price' => ['required', 'numeric', 'min:0'],
             'production_cost' => ['required', 'numeric', 'min:0'], 'made_to_order' => ['boolean'],
-            'active' => ['boolean'], 'description' => ['nullable', 'string', 'max:3000'],
+            'active' => ['boolean'], 'description' => ['nullable', 'string', 'max:3000'], 'store_visible' => ['boolean'],
+            'store_slug' => ['nullable', 'string', 'max:180', 'unique:products,store_slug'.($product ? ','.$product->id : '')], 'image_url' => ['nullable', 'url', 'max:1000'], 'allow_personalization' => ['boolean'],
         ]);
     }
 }

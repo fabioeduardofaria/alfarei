@@ -12,9 +12,18 @@ use App\Http\Controllers\TechnicalSheetController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\StoreController;
+use App\Http\Controllers\StoreSettingsController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : redirect()->route('login'));
+Route::get('/', [StoreController::class, 'index'])->name('loja.index');
+Route::get('loja/produto/{produto}', [StoreController::class, 'product'])->name('loja.product');
+Route::get('loja/carrinho', [StoreController::class, 'cart'])->name('loja.cart');
+Route::post('loja/produto/{produto}/carrinho', [StoreController::class, 'add'])->name('loja.add');
+Route::post('loja/carrinho/{key}/remover', [StoreController::class, 'remove'])->where('key', '.*')->name('loja.remove');
+Route::get('loja/finalizar', [StoreController::class, 'checkout'])->name('loja.checkout');
+Route::post('loja/finalizar', [StoreController::class, 'placeOrder'])->name('loja.place-order');
+Route::get('loja/pedido/{number}/sucesso', [StoreController::class, 'success'])->name('loja.success');
 
 Route::middleware('guest')->group(function () {
     Route::get('/entrar', [AuthController::class, 'create'])->name('login');
@@ -23,6 +32,8 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/painel', DashboardController::class)->name('dashboard');
+    Route::get('administracao/loja', [StoreSettingsController::class, 'edit'])->name('loja.settings.edit');
+    Route::put('administracao/loja', [StoreSettingsController::class, 'update'])->name('loja.settings.update');
     Route::resource('clientes', CustomerController::class)->except('show', 'destroy');
     Route::resource('materiais', MaterialController::class)->except('show', 'destroy');
     Route::resource('fornecedores', SupplierController::class)->except('show', 'destroy');

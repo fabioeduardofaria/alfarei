@@ -25,7 +25,7 @@ class ExampleTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertRedirect('/entrar');
+        $response->assertOk();
         $this->get('/painel')->assertRedirect('/entrar');
     }
 
@@ -141,5 +141,22 @@ class ExampleTest extends TestCase
         $this->actingAs($user)->post("/financeiro/{$entry->id}/baixar", ['payment_method' => 'pix'])->assertRedirect();
 
         $this->assertDatabaseHas('finance_entries', ['id' => $entry->id, 'status' => 'paid', 'payment_method' => 'pix']);
+    }
+
+    public function test_store_checkout_creates_order_and_financial_entries(): void
+    {
+        User::factory()->create(['active' => true]);
+        $product = Product::create(['name' => 'Peça da loja', 'type' => 'product', 'base_price' => 150, 'production_cost' => 60, 'made_to_order' => true, 'active' => true, 'store_visible' => true, 'allow_personalization' => true]);
+        $this->assertTrue($product->fresh()->store_visible);
+
+        $cart = ["{$product->id}|Nome da cliente" => ['product_id' => $product->id, 'quantity' => 2, 'personalization' => 'Nome da cliente']];
+        $this->withSession(['store_cart' => $cart])->get('/loja/carrinho')->assertSee('Peça da loja');
+        $response = $this->withSession(['store_cart' => $cart])
+            ->post('/loja/finalizar', ['name' => 'Cliente Loja', 'email' => 'loja@cliente.test', 'phone' => '(65) 99999-0000', 'city' => 'Cuiabá', 'state' => 'MT']);
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('orders', ['source' => 'ecommerce', 'total' => 300, 'deposit_amount' => 150, 'status' => 'awaiting_deposit']);
+        $this->assertDatabaseHas('order_items', ['description' => 'Peça da loja · Personalização: Nome da cliente', 'quantity' => 2]);
+        $this->assertDatabaseCount('finance_entries', 2);
     }
 }
