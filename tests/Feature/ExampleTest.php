@@ -159,4 +159,14 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('order_items', ['description' => 'Peça da loja · Personalização: Nome da cliente', 'quantity' => 2]);
         $this->assertDatabaseCount('finance_entries', 2);
     }
+
+    public function test_store_tracking_requires_matching_order_number_and_customer_email(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Rastreio', 'email' => 'rastreio@cliente.test', 'customer_group' => 'final']);
+        Order::create(['number' => 'PED-2026-RASTREIO', 'customer_id' => $customer->id, 'created_by' => $user->id, 'status' => 'in_production', 'source' => 'ecommerce', 'total' => 100, 'cost_total' => 40, 'deposit_amount' => 50]);
+
+        $this->post('/loja/rastrear', ['number' => 'PED-2026-RASTREIO', 'email' => 'rastreio@cliente.test'])->assertOk()->assertSee('Em produção');
+        $this->post('/loja/rastrear', ['number' => 'PED-2026-RASTREIO', 'email' => 'outro@cliente.test'])->assertOk()->assertSee('Não encontramos um pedido');
+    }
 }

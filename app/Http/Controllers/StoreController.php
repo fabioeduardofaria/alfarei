@@ -48,6 +48,14 @@ class StoreController extends Controller
         session()->forget('store_cart'); return redirect()->route('loja.success', $order->number);
     }
     public function success(string $number): View { return view('store.success', ['settings' => $this->settings(), 'number' => $number, 'cartCount' => 0]); }
+    public function trackingForm(): View { return view('store.tracking', ['settings' => $this->settings(), 'cartCount' => $this->cartCount(), 'order' => null]); }
+    public function tracking(Request $request): View
+    {
+        $data = $request->validate(['number' => ['required', 'string', 'max:30'], 'email' => ['required', 'email']]);
+        $order = Order::with('customer', 'items')->where('number', strtoupper(trim($data['number'])))->whereHas('customer', fn ($query) => $query->where('email', $data['email']))->first();
+        if (! $order) return view('store.tracking', ['settings' => $this->settings(), 'cartCount' => $this->cartCount(), 'order' => null])->withErrors(['tracking' => 'Não encontramos um pedido com estes dados. Confira o número e o e-mail informado.']);
+        return view('store.tracking', ['settings' => $this->settings(), 'cartCount' => $this->cartCount(), 'order' => $order]);
+    }
     private function settings(): StoreSetting { return StoreSetting::firstOrCreate([], ['hero_subtitle' => 'Produtos personalizados com acabamento profissional, produzidos pela Alfarei CNC.']); }
     private function lines()
     {

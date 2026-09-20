@@ -24,6 +24,8 @@ Route::post('loja/carrinho/{key}/remover', [StoreController::class, 'remove'])->
 Route::get('loja/finalizar', [StoreController::class, 'checkout'])->name('loja.checkout');
 Route::post('loja/finalizar', [StoreController::class, 'placeOrder'])->name('loja.place-order');
 Route::get('loja/pedido/{number}/sucesso', [StoreController::class, 'success'])->name('loja.success');
+Route::get('loja/rastrear', [StoreController::class, 'trackingForm'])->name('loja.tracking');
+Route::post('loja/rastrear', [StoreController::class, 'tracking'])->name('loja.tracking.search');
 
 Route::middleware('guest')->group(function () {
     Route::get('/entrar', [AuthController::class, 'create'])->name('login');
