@@ -5,13 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\FinanceEntry;
 use App\Services\ProductionWorkflowService;
+use App\Services\CustomerNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class OrderController extends Controller
 {
-    public function __construct(private readonly ProductionWorkflowService $workflow) {}
+    public function __construct(
+        private readonly ProductionWorkflowService $workflow,
+        private readonly CustomerNotificationService $notifications,
+    ) {}
     public function index(): View
     {
         return view('orders.index', ['orders' => Order::with('customer')->latest()->paginate(12)]);
@@ -51,6 +55,7 @@ class OrderController extends Controller
         $data = $request->validate(['tracking_code' => ['nullable', 'string', 'max:100']]);
         if (! in_array($pedido->status, ['ready', 'quality'], true)) return back()->withErrors(['status' => 'O pedido precisa estar pronto para ser despachado.']);
         $pedido->update(['status' => 'delivered', 'tracking_code' => $data['tracking_code'] ?? null, 'shipped_at' => now(), 'delivered_at' => $pedido->delivery_method === 'pickup' ? now() : null]);
+        $this->notifications->queue($pedido->fresh(), 'shipped');
         return back()->with('success', $pedido->delivery_method === 'pickup' ? 'Retirada registrada.' : 'Despacho registrado.');
     }
 }

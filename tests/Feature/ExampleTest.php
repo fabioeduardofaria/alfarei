@@ -89,6 +89,7 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('production_orders', ['order_id' => $order->id, 'status' => 'preparation', 'actual_minutes' => 35]);
         $this->assertDatabaseHas('production_events', ['production_order_id' => $production->id, 'type' => 'status', 'to_status' => 'preparation', 'minutes' => 35]);
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'in_production']);
+        $this->assertDatabaseHas('customer_notifications', ['order_id' => $order->id, 'event' => 'production_started', 'status' => 'pending']);
     }
 
     public function test_bom_material_is_reserved_then_consumed_when_cutting_starts(): void
@@ -113,6 +114,23 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('materials', ['id' => $material->id, 'stock_quantity' => 3, 'reserved_quantity' => 0]);
         $this->assertDatabaseHas('inventory_movements', ['production_order_id' => $production->id, 'type' => 'reserve', 'status' => 'consumed']);
         $this->assertDatabaseHas('inventory_movements', ['production_order_id' => $production->id, 'type' => 'consume', 'status' => 'posted', 'quantity' => 2]);
+    }
+
+    public function test_finished_production_queues_ready_notification_for_pickup(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Retirada', 'phone' => '(65) 99999-1111', 'customer_group' => 'final']);
+        Machine::create(['name' => 'Laser finalização', 'code' => 'LASER-FINAL', 'type' => 'laser_co2', 'hourly_cost' => 50, 'status' => 'available', 'active' => true]);
+        $order = Order::create(['number' => 'PED-2026-PRONTO', 'customer_id' => $customer->id, 'created_by' => $user->id, 'status' => 'ready_for_production', 'source' => 'ecommerce', 'delivery_method' => 'pickup', 'total' => 200, 'cost_total' => 80, 'deposit_amount' => 100]);
+
+        $workflow = app(ProductionWorkflowService::class);
+        $production = $workflow->createFromOrder($order, $user->id);
+        foreach (range(1, 5) as $step) {
+            $production = $workflow->advance($production->fresh(), $user->id);
+        }
+
+        $this->assertDatabaseHas('production_orders', ['id' => $production->id, 'status' => 'ready']);
+        $this->assertDatabaseHas('customer_notifications', ['order_id' => $order->id, 'event' => 'ready', 'status' => 'pending', 'recipient' => '65999991111']);
     }
 
     public function test_receiving_purchase_increases_material_stock_once(): void
@@ -159,6 +177,7 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('orders', ['source' => 'ecommerce', 'total' => 300, 'deposit_amount' => 150, 'status' => 'awaiting_deposit', 'delivery_method' => 'pickup']);
         $this->assertDatabaseHas('order_items', ['description' => 'Peça da loja · Personalização: Nome da cliente', 'quantity' => 2]);
         $this->assertDatabaseCount('finance_entries', 2);
+        $this->assertDatabaseHas('customer_notifications', ['event' => 'order_created', 'status' => 'pending', 'recipient' => '65999990000']);
     }
 
     public function test_store_tracking_requires_matching_order_number_and_customer_email(): void
@@ -180,5 +199,6 @@ class ExampleTest extends TestCase
         $this->actingAs($user)->post("/pedidos/{$order->id}/despachar", ['tracking_code' => 'BR123456789'])->assertRedirect();
 
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'delivered', 'tracking_code' => 'BR123456789']);
+        $this->assertDatabaseHas('customer_notifications', ['order_id' => $order->id, 'event' => 'shipped', 'status' => 'pending']);
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\StoreSetting;
 use App\Models\User;
+use App\Services\CustomerNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ use Illuminate\View\View;
 
 class StoreController extends Controller
 {
+    public function __construct(private readonly CustomerNotificationService $notifications) {}
     public function index(): View { return view('store.index', ['settings' => $this->settings(), 'products' => Product::where('active', true)->where('store_visible', true)->orderBy('name')->get(), 'cartCount' => $this->cartCount()]); }
     public function product(Product $produto): View { abort_unless($produto->active && $produto->store_visible, 404); return view('store.product', ['settings' => $this->settings(), 'product' => $produto, 'cartCount' => $this->cartCount()]); }
     public function cart(): View { return view('store.cart', ['settings' => $this->settings(), 'lines' => $this->lines(), 'cartCount' => $this->cartCount()]); }
@@ -45,6 +47,7 @@ class StoreController extends Controller
             FinanceEntry::create(['type' => 'receivable', 'source_type' => 'order_balance', 'source_id' => $order->id, 'description' => 'Saldo do pedido '.$order->number, 'counterparty' => $customer->name, 'due_date' => now()->addDays(15)->toDateString(), 'amount' => $total - $deposit]);
             return $order;
         });
+        $this->notifications->queue($order, 'order_created');
         session()->forget('store_cart'); return redirect()->route('loja.success', $order->number);
     }
     public function success(string $number): View { return view('store.success', ['settings' => $this->settings(), 'number' => $number, 'order' => Order::where('number', $number)->firstOrFail(), 'cartCount' => 0]); }

@@ -11,7 +11,10 @@ class ProductionWorkflowService
 {
     public const STEPS = ['awaiting', 'preparation', 'cutting', 'finishing', 'quality', 'ready'];
 
-    public function __construct(private readonly InventoryReservationService $inventory) {}
+    public function __construct(
+        private readonly InventoryReservationService $inventory,
+        private readonly CustomerNotificationService $notifications,
+    ) {}
 
     public function createFromOrder(Order $order, int $userId): ProductionOrder
     {
@@ -27,6 +30,7 @@ class ProductionWorkflowService
             $production->events()->create(['user_id' => $userId, 'type' => 'created', 'to_status' => 'awaiting', 'notes' => 'OP criada a partir do pedido '.$order->number]);
             $this->inventory->reserveFor($production);
             $order->update(['status' => 'in_production']);
+            $this->notifications->queue($order->fresh(), 'production_started');
             return $production;
         });
     }
@@ -45,7 +49,10 @@ class ProductionWorkflowService
             'finished_at' => $to === 'ready' ? now() : null,
         ]);
         $production->events()->create(['user_id' => $userId, 'type' => 'status', 'from_status' => $from, 'to_status' => $to, 'minutes' => $minutes]);
-        if ($to === 'ready') $production->order()->update(['status' => 'quality']);
+        if ($to === 'ready') {
+            $production->order()->update(['status' => 'quality']);
+            $this->notifications->queue($production->order()->firstOrFail(), 'ready');
+        }
         return $production->fresh();
     }
 }
