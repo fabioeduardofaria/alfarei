@@ -152,10 +152,10 @@ class ExampleTest extends TestCase
         $cart = ["{$product->id}|Nome da cliente" => ['product_id' => $product->id, 'quantity' => 2, 'personalization' => 'Nome da cliente']];
         $this->withSession(['store_cart' => $cart])->get('/loja/carrinho')->assertSee('Peça da loja');
         $response = $this->withSession(['store_cart' => $cart])
-            ->post('/loja/finalizar', ['name' => 'Cliente Loja', 'email' => 'loja@cliente.test', 'phone' => '(65) 99999-0000', 'city' => 'Cuiabá', 'state' => 'MT']);
+            ->post('/loja/finalizar', ['name' => 'Cliente Loja', 'email' => 'loja@cliente.test', 'phone' => '(65) 99999-0000', 'city' => 'Cuiabá', 'state' => 'MT', 'delivery_method' => 'pickup']);
         $response->assertRedirect();
 
-        $this->assertDatabaseHas('orders', ['source' => 'ecommerce', 'total' => 300, 'deposit_amount' => 150, 'status' => 'awaiting_deposit']);
+        $this->assertDatabaseHas('orders', ['source' => 'ecommerce', 'total' => 300, 'deposit_amount' => 150, 'status' => 'awaiting_deposit', 'delivery_method' => 'pickup']);
         $this->assertDatabaseHas('order_items', ['description' => 'Peça da loja · Personalização: Nome da cliente', 'quantity' => 2]);
         $this->assertDatabaseCount('finance_entries', 2);
     }
@@ -168,5 +168,16 @@ class ExampleTest extends TestCase
 
         $this->post('/loja/rastrear', ['number' => 'PED-2026-RASTREIO', 'email' => 'rastreio@cliente.test'])->assertOk()->assertSee('Em produção');
         $this->post('/loja/rastrear', ['number' => 'PED-2026-RASTREIO', 'email' => 'outro@cliente.test'])->assertOk()->assertSee('Não encontramos um pedido');
+    }
+
+    public function test_quality_order_can_be_dispatched_with_tracking_code(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Entrega', 'customer_group' => 'final']);
+        $order = Order::create(['number' => 'PED-2026-ENTREGA', 'customer_id' => $customer->id, 'created_by' => $user->id, 'status' => 'quality', 'source' => 'ecommerce', 'delivery_method' => 'shipping', 'delivery_city' => 'Cuiabá', 'delivery_state' => 'MT', 'total' => 100, 'cost_total' => 40, 'deposit_amount' => 50]);
+
+        $this->actingAs($user)->post("/pedidos/{$order->id}/despachar", ['tracking_code' => 'BR123456789'])->assertRedirect();
+
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'delivered', 'tracking_code' => 'BR123456789']);
     }
 }

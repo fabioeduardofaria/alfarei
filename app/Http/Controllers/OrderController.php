@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\FinanceEntry;
 use App\Services\ProductionWorkflowService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class OrderController extends Controller
@@ -44,5 +45,12 @@ class OrderController extends Controller
         if ($pedido->status !== 'ready_for_production') return back()->withErrors(['status' => 'Este pedido ainda não está liberado para produção.']);
         $production = $this->workflow->createFromOrder($pedido, request()->user()->id);
         return redirect()->route('producao.show', $production)->with('success', 'Ordem de Produção '.$production->number.' criada.');
+    }
+    public function ship(Request $request, Order $pedido): RedirectResponse
+    {
+        $data = $request->validate(['tracking_code' => ['nullable', 'string', 'max:100']]);
+        if (! in_array($pedido->status, ['ready', 'quality'], true)) return back()->withErrors(['status' => 'O pedido precisa estar pronto para ser despachado.']);
+        $pedido->update(['status' => 'delivered', 'tracking_code' => $data['tracking_code'] ?? null, 'shipped_at' => now(), 'delivered_at' => $pedido->delivery_method === 'pickup' ? now() : null]);
+        return back()->with('success', $pedido->delivery_method === 'pickup' ? 'Retirada registrada.' : 'Despacho registrado.');
     }
 }

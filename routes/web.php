@@ -14,6 +14,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreSettingsController;
+use App\Http\Controllers\DeliveryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [StoreController::class, 'index'])->name('loja.index');
@@ -56,6 +57,8 @@ Route::middleware('auth')->group(function () {
     Route::post('pedidos/{pedido}/confirmar-entrada', [OrderController::class, 'confirmDeposit'])->name('pedidos.confirm-deposit');
     Route::post('pedidos/{pedido}/aprovar-arte', [OrderController::class, 'approveArt'])->name('pedidos.approve-art');
     Route::post('pedidos/{pedido}/criar-op', [OrderController::class, 'createProductionOrder'])->name('pedidos.create-op');
+    Route::post('pedidos/{pedido}/despachar', [OrderController::class, 'ship'])->name('pedidos.ship');
+    Route::get('entregas', [DeliveryController::class, 'index'])->name('entregas.index');
     Route::get('producao', [ProductionController::class, 'index'])->name('producao.index');
     Route::get('producao/{ordemProducao}', [ProductionController::class, 'show'])->name('producao.show');
     Route::post('producao/{ordemProducao}/avancar', [ProductionController::class, 'advance'])->name('producao.advance');

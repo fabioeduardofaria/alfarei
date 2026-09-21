@@ -23,6 +23,7 @@
             <a class="{{ request()->routeIs('orcamentos.*') ? 'active' : '' }}" href="{{ route('orcamentos.index') }}">◫ <span>Orçamentos</span></a>
             <a class="{{ request()->routeIs('pedidos.*') ? 'active' : '' }}" href="{{ route('pedidos.index') }}">▣ <span>Pedidos</span></a>
             <a class="{{ request()->routeIs('producao.*') ? 'active' : '' }}" href="{{ route('producao.index') }}">◒ <span>Produção</span></a>
+            <a class="{{ request()->routeIs('entregas.*') ? 'active' : '' }}" href="{{ route('entregas.index') }}">▹ <span>Entregas</span></a>
             <a class="{{ request()->routeIs('compras.*') ? 'active' : '' }}" href="{{ route('compras.index') }}">▤ <span>Compras</span></a>
             <a class="{{ request()->routeIs('financeiro.*') ? 'active' : '' }}" href="{{ route('financeiro.index') }}">▤ <span>Financeiro</span></a>
             <a class="{{ request()->routeIs('loja.settings.*') ? 'active' : '' }}" href="{{ route('loja.settings.edit') }}">◉ <span>Configurar loja</span></a>
