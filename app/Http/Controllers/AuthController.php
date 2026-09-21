@@ -21,11 +21,12 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (! Auth::attempt(array_merge($credentials, ['active' => true]), $request->boolean('remember'))) {
             return back()->withErrors(['email' => 'E-mail ou senha inválidos.'])->onlyInput('email');
         }
 
         $request->session()->regenerate();
+        $request->user()->update(['last_login_at' => now()]);
 
         return redirect()->intended(route('dashboard'));
     }

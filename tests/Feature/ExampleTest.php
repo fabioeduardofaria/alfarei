@@ -29,6 +29,28 @@ class ExampleTest extends TestCase
         $this->get('/painel')->assertRedirect('/entrar');
     }
 
+    public function test_user_permissions_block_direct_access_to_restricted_modules(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial', 'permissions' => ['dashboard']]);
+
+        $this->actingAs($user)->get('/painel')->assertOk()->assertDontSee('Financeiro')->assertDontSee('Usuários e acessos');
+        $this->actingAs($user)->get('/financeiro')->assertForbidden();
+        $this->actingAs($user)->get('/usuarios')->assertForbidden();
+    }
+
+    public function test_administrator_can_create_user_with_specific_modules(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->post('/usuarios', [
+            'name' => 'Operador de Produção', 'email' => 'producao@alfarei.local', 'password' => 'segredo123',
+            'role' => 'production', 'active' => 1, 'permissions' => ['dashboard', 'production', 'materials'],
+        ])->assertRedirect('/usuarios');
+
+        $this->assertDatabaseHas('users', ['email' => 'producao@alfarei.local', 'role' => 'production', 'active' => true]);
+        $this->assertSame(['dashboard', 'production', 'materials'], User::where('email', 'producao@alfarei.local')->firstOrFail()->permissions);
+    }
+
     public function test_authenticated_user_can_create_customer(): void
     {
         $user = User::factory()->create();
