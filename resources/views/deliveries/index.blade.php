@@ -1,5 +1,46 @@
 @extends('layouts.app', ['title' => 'Entregas · Alfarei CNC'])
+
 @section('content')
-<div class="heading"><div><p class="eyebrow">LOGÍSTICA</p><h1>Entregas e retiradas</h1><p class="muted">Registre a saída depois da conferência e mantenha o cliente informado no rastreio.</p></div><span class="stage">LOGÍSTICA ATIVA</span></div>
-<article class="panel table-panel"><table><thead><tr><th>PEDIDO</th><th>CLIENTE</th><th>MODALIDADE</th><th>DESTINO</th><th>STATUS</th><th class="actions-header">AÇÃO</th></tr></thead><tbody>@forelse($orders as $order)<tr><td><b>{{ $order->number }}</b><small>{{ $order->created_at->format('d/m/Y') }}</small></td><td>{{ $order->customer->name }}</td><td>{{ $order->delivery_method === 'shipping' ? 'Entrega' : 'Retirada' }}</td><td>@if($order->delivery_method === 'shipping'){{ $order->delivery_city }}/{{ $order->delivery_state }}<small>{{ $order->street }}, {{ $order->street_number }}</small>@else<div>Retirada com a Alfarei</div>@endif</td><td><span class="status {{ $order->status }}">{{ $order->status === 'quality' ? 'Pronto para saída' : 'Despachado / retirado' }}</span></td><td class="actions-cell">@if($order->status === 'quality')<form method="POST" action="{{ route('pedidos.ship', $order) }}">@csrf@if($order->delivery_method === 'shipping')<input class="tracking-input" name="tracking_code" value="{{ $order->tracking_code }}" placeholder="Rastreio opcional">@endif<button class="link-button" type="submit">{{ $order->delivery_method === 'shipping' ? 'Despachar →' : 'Confirmar retirada →' }}</button></form>@else<small>{{ $order->shipped_at?->format('d/m/Y H:i') }}</small>@endif</td></tr>@empty<tr><td colspan="6" class="empty">Nenhum pedido aguardando entrega ou retirada.</td></tr>@endforelse</tbody></table><div class="pagination">{{ $orders->links() }}</div></article>
+<div class="heading">
+    <div><p class="eyebrow">LOGÍSTICA</p><h1>Entregas e retiradas</h1><p class="muted">Registre a saída depois da conferência e mantenha o cliente informado no rastreio.</p></div>
+    <span class="stage">LOGÍSTICA ATIVA</span>
+</div>
+<article class="panel table-panel">
+    <table>
+        <thead><tr><th>PEDIDO</th><th>CLIENTE</th><th>MODALIDADE</th><th>DESTINO</th><th>STATUS</th><th class="actions-header">AÇÃO</th></tr></thead>
+        <tbody>
+        @forelse($orders as $order)
+            <tr>
+                <td><b>{{ $order->number }}</b><small>{{ $order->created_at->format('d/m/Y') }}</small></td>
+                <td>{{ $order->customer->name }}</td>
+                <td>{{ $order->delivery_method === 'shipping' ? 'Entrega' : 'Retirada' }}</td>
+                <td>
+                    @if($order->delivery_method === 'shipping')
+                        {{ $order->delivery_city }}/{{ $order->delivery_state }}<small>{{ $order->street }}, {{ $order->street_number }}</small>
+                    @else
+                        Retirada com a Alfarei
+                    @endif
+                </td>
+                <td><span class="status {{ $order->status }}">{{ $order->status === 'quality' ? 'Pronto para saída' : 'Despachado / retirado' }}</span></td>
+                <td class="actions-cell">
+                    @if($order->status === 'quality')
+                        <form method="POST" action="{{ route('pedidos.ship', $order) }}">
+                            @csrf
+                            @if($order->delivery_method === 'shipping')
+                                <input class="tracking-input" name="tracking_code" value="{{ $order->tracking_code }}" placeholder="Rastreio opcional">
+                            @endif
+                            <button class="link-button" type="submit">{{ $order->delivery_method === 'shipping' ? 'Despachar →' : 'Confirmar retirada →' }}</button>
+                        </form>
+                    @else
+                        <small>{{ $order->shipped_at?->format('d/m/Y H:i') }}</small>
+                    @endif
+                </td>
+            </tr>
+        @empty
+            <tr><td colspan="6" class="empty">Nenhum pedido aguardando entrega ou retirada.</td></tr>
+        @endforelse
+        </tbody>
+    </table>
+    <div class="pagination">{{ $orders->links() }}</div>
+</article>
 @endsection
