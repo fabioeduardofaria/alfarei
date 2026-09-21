@@ -148,6 +148,7 @@ class ExampleTest extends TestCase
         User::factory()->create(['active' => true]);
         $product = Product::create(['name' => 'Peça da loja', 'type' => 'product', 'base_price' => 150, 'production_cost' => 60, 'made_to_order' => true, 'active' => true, 'store_visible' => true, 'allow_personalization' => true]);
         $this->assertTrue($product->fresh()->store_visible);
+        $this->get("/loja/produto/{$product->id}")->assertOk()->assertSee('Peça da loja');
 
         $cart = ["{$product->id}|Nome da cliente" => ['product_id' => $product->id, 'quantity' => 2, 'personalization' => 'Nome da cliente']];
         $this->withSession(['store_cart' => $cart])->get('/loja/carrinho')->assertSee('Peça da loja');
