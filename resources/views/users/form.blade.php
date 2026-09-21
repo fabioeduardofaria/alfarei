@@ -1,7 +1,7 @@
 @extends('layouts.app', ['title' => ($user->exists ? 'Editar usuário' : 'Novo usuário').' · Alfarei CNC'])
 
 @section('content')
-<div class="heading"><div><p class="eyebrow">ADMINISTRAÇÃO · ACESSOS</p><h1>{{ $user->exists ? 'Editar usuário' : 'Novo usuário' }}</h1><p class="muted">O perfil sugere acessos iniciais; os módulos marcados abaixo são os que valerão para esta conta.</p></div><a class="secondary" href="{{ route('usuarios.index') }}>← Usuários</a></div>
+<div class="heading"><div><p class="eyebrow">ADMINISTRAÇÃO · ACESSOS</p><h1>{{ $user->exists ? 'Editar usuário' : 'Novo usuário' }}</h1><p class="muted">O perfil sugere acessos iniciais; os módulos marcados abaixo são os que valerão para esta conta.</p></div><a class="secondary" href="{{ route('usuarios.index') }}">← Usuários</a></div>
 <form class="panel form-card user-form" method="POST" action="{{ $user->exists ? route('usuarios.update', $user) : route('usuarios.store') }}">
     @csrf
     @if($user->exists) @method('PUT') @endif
@@ -24,6 +24,6 @@
             @endforeach
         </div>
     </section>
-    <div class="form-actions"><a class="secondary" href="{{ route('usuarios.index') }}>Cancelar</a><button class="primary" type="submit">Salvar usuário</button></div>
+    <div class="form-actions"><a class="secondary" href="{{ route('usuarios.index') }}">Cancelar</a><button class="primary" type="submit">Salvar usuário</button></div>
 </form>
 @endsection
