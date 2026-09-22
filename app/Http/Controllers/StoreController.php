@@ -81,11 +81,15 @@ class StoreController extends Controller
             return redirect()->route('loja.index');
         }
         $data = $request->validate(['name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'max:150'], 'phone' => ['required', 'string', 'max:30'], 'city' => ['required', 'string', 'max:100'], 'state' => ['required', 'string', 'size:2'], 'delivery_method' => ['required', 'in:pickup,shipping'], 'postal_code' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:12'], 'street' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:150'], 'street_number' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:20'], 'complement' => ['nullable', 'string', 'max:100'], 'neighborhood' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:100'], 'delivery_city' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:100'], 'delivery_state' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'size:2'], 'notes' => ['nullable', 'string', 'max:1000']]);
-        $order = DB::transaction(function () use ($data, $lines) {
+        if (($data['delivery_method'] === 'pickup' && ! $settings->pickup_enabled) || ($data['delivery_method'] === 'shipping' && ! $settings->shipping_enabled)) {
+            return back()->withErrors(['delivery_method' => 'Esta modalidade de recebimento não está disponível no momento.']);
+        }
+
+        $order = DB::transaction(function () use ($data, $lines, $settings) {
             $customer = Customer::firstOrCreate(['email' => $data['email']], ['type' => 'PF', 'name' => $data['name'], 'phone' => $data['phone'], 'city' => $data['city'], 'state' => strtoupper($data['state']), 'customer_group' => 'final', 'active' => true]);
             $total = $lines->sum('total');
             $cost = $lines->sum('cost');
-            $deposit = round($total * .5, 2);
+            $deposit = round($total * ((float) $settings->deposit_percent / 100), 2);
             $order = Order::create(['number' => sprintf('PED-%s-%04d', now()->format('Y'), Order::count() + 1), 'customer_id' => $customer->id, 'created_by' => User::where('active', true)->value('id') ?? 1, 'status' => 'awaiting_deposit', 'source' => 'ecommerce', 'delivery_method' => $data['delivery_method'], 'postal_code' => $data['postal_code'] ?? null, 'street' => $data['street'] ?? null, 'street_number' => $data['street_number'] ?? null, 'complement' => $data['complement'] ?? null, 'neighborhood' => $data['neighborhood'] ?? null, 'delivery_city' => $data['delivery_city'] ?? null, 'delivery_state' => isset($data['delivery_state']) ? strtoupper($data['delivery_state']) : null, 'total' => $total, 'cost_total' => $cost, 'deposit_amount' => $deposit, 'notes' => $data['notes'] ?? null]);
             foreach ($lines as $line) {
                 $order->items()->create(['product_id' => $line->product->id, 'description' => $line->product->name.($line->personalization ? ' · Personalização: '.$line->personalization : ''), 'type' => $line->product->type, 'quantity' => $line->quantity, 'unit_price' => $line->product->base_price, 'unit_cost' => $line->product->production_cost, 'total' => $line->total, 'total_cost' => $line->cost, 'made_to_order' => $line->product->made_to_order]);

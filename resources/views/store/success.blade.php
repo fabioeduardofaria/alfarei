@@ -5,7 +5,7 @@
     <span>✓</span><p class="store-eyebrow">PEDIDO RECEBIDO</p>
     <h1>Seu pedido {{ $number }} chegou até nós.</h1>
     <p>Para iniciar a produção, confirme a entrada de <b>R$ {{ number_format($order->deposit_amount, 2, ',', '.') }}</b>. A equipe também confirmará {{ $order->delivery_method === 'shipping' ? 'o frete e o endereço de entrega' : 'os detalhes para retirada' }}.</p>
-    @if($settings->pix_key)
+    @if($settings->pix_enabled && $settings->pix_key)
         <div class="pix-box"><b>Pagamento por PIX</b><span>Chave: {{ $settings->pix_key }}</span><small>Envie o comprovante pelo atendimento, junto com o número {{ $number }}.</small></div>
     @endif
     @if($settings->whatsapp)
