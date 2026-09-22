@@ -11,14 +11,35 @@ class Quote extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['number', 'customer_id', 'created_by', 'version', 'status', 'valid_until', 'notes', 'discount', 'subtotal', 'cost_total', 'total'];
+    protected $fillable = ['number', 'parent_quote_id', 'customer_id', 'created_by', 'version', 'status', 'valid_until', 'notes', 'payment_terms', 'production_lead_days', 'deposit_percent', 'approval_token', 'sent_at', 'approved_at', 'rejected_at', 'customer_response', 'discount', 'subtotal', 'cost_total', 'total'];
 
     protected function casts(): array
     {
-        return ['valid_until' => 'date', 'discount' => 'decimal:2', 'subtotal' => 'decimal:2', 'cost_total' => 'decimal:2', 'total' => 'decimal:2'];
+        return ['valid_until' => 'date', 'deposit_percent' => 'decimal:2', 'sent_at' => 'datetime', 'approved_at' => 'datetime', 'rejected_at' => 'datetime', 'discount' => 'decimal:2', 'subtotal' => 'decimal:2', 'cost_total' => 'decimal:2', 'total' => 'decimal:2'];
     }
 
-    public function customer(): BelongsTo { return $this->belongsTo(Customer::class); }
-    public function items(): HasMany { return $this->hasMany(QuoteItem::class); }
-    public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(QuoteItem::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_quote_id');
+    }
+
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_quote_id');
+    }
 }

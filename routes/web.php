@@ -70,6 +70,7 @@ Route::middleware('auth')->group(function () {
     Route::get('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'edit'])->middleware('access:products')->name('produtos.technical-sheet.edit');
     Route::put('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'update'])->middleware('access:products')->name('produtos.technical-sheet.update');
     Route::resource('orcamentos', QuoteController::class)->except('show', 'destroy')->middleware('access:quotes');
+    Route::post('orcamentos/{orcamento}/nova-versao', [QuoteController::class, 'createRevision'])->middleware('access:quotes')->name('orcamentos.revision');
     Route::post('orcamentos/{orcamento}/converter-em-pedido', [QuoteController::class, 'convertToOrder'])->middleware('access:quotes')->name('orcamentos.convert');
     Route::get('pedidos', [OrderController::class, 'index'])->middleware('access:orders')->name('pedidos.index');
     Route::get('pedidos/{pedido}', [OrderController::class, 'show'])->middleware('access:orders')->name('pedidos.show');
