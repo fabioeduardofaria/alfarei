@@ -14,6 +14,7 @@ use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\Quote;
 use App\Models\QuoteItem;
+use App\Models\StoreSetting;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\ProductionWorkflowService;
@@ -42,6 +43,22 @@ class ExampleTest extends TestCase
         $this->actingAs($user)->get('/painel')->assertOk()->assertDontSee('Financeiro')->assertDontSee('Usuários e acessos');
         $this->actingAs($user)->get('/financeiro')->assertForbidden();
         $this->actingAs($user)->get('/usuarios')->assertForbidden();
+    }
+
+    public function test_administrator_can_configure_complete_storefront_settings(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->put('/administracao/loja', [
+            'store_name' => 'Alfarei Online', 'hero_title' => 'Sua ideia em madeira', 'hero_cta_label' => 'Conhecer catálogo',
+            'primary_color' => '#123456', 'accent_color' => '#abcdef', 'deposit_percent' => 40,
+            'announcement_active' => true, 'announcement_text' => 'Frete especial nesta semana.',
+            'pickup_enabled' => true, 'shipping_enabled' => true, 'pix_enabled' => true, 'store_open' => true,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('store_settings', ['store_name' => 'Alfarei Online', 'announcement_active' => true, 'deposit_percent' => 40]);
+        $this->get('/')->assertOk()->assertSee('Frete especial nesta semana.');
+        $this->assertSame('#123456', StoreSetting::firstOrFail()->primary_color);
     }
 
     public function test_administrator_can_create_user_with_specific_modules(): void

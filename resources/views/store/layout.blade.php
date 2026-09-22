@@ -1,1 +1,17 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ $settings->store_name }} · Loja</title><link rel="stylesheet" href="{{ asset('css/store.css') }}"><link rel="stylesheet" href="{{ asset('css/store-extra.css') }}"></head><body><header class="store-header"><a href="{{ route('loja.index') }}" class="store-brand"><img src="{{ asset('images/alfarei-logo.png') }}" alt="Alfarei"></a><nav><a href="{{ route('loja.index') }}#catalogo">Produtos</a><a href="{{ route('loja.index') }}#como-funciona">Como funciona</a><a href="{{ route('loja.tracking') }}">Rastrear pedido</a><a class="cart-link" href="{{ route('loja.cart') }}">Carrinho <b>{{ $cartCount }}</b></a></nav></header><main>@include('partials.flash') @yield('content')</main><footer><a href="{{ route('loja.index') }}" class="store-brand"><img src="{{ asset('images/alfarei-logo.png') }}" alt="Alfarei"></a><p>{{ $settings->support_email ?: 'Atendimento personalizado para tirar sua ideia do papel.' }}</p></footer></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ $settings->seo_title ?: $settings->store_name.' · Loja' }}</title>
+    <meta name="description" content="{{ $settings->seo_description ?: $settings->hero_subtitle }}">
+    @if($settings->share_image_url)<meta property="og:image" content="{{ $settings->share_image_url }}">@endif
+    <link rel="stylesheet" href="{{ asset('css/store.css') }}"><link rel="stylesheet" href="{{ asset('css/store-extra.css') }}">
+    <style>:root{--ink:{{ $settings->primary_color ?: '#193128' }};--leaf:{{ $settings->primary_color ?: '#355d49' }};--gold:{{ $settings->accent_color ?: '#d1a943' }};}</style>
+    @if($settings->google_analytics_id)<script async src="https://www.googletagmanager.com/gtag/js?id={{ $settings->google_analytics_id }}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date);gtag('config','{{ $settings->google_analytics_id }}');</script>@endif
+</head>
+<body>
+@if($settings->announcement_active && $settings->announcement_text)<div class="store-announcement">{{ $settings->announcement_text }}</div>@endif
+<header class="store-header"><a href="{{ route('loja.index') }}" class="store-brand"><img src="{{ asset('images/alfarei-logo.png') }}" alt="{{ $settings->store_name }}"></a><nav><a href="{{ route('loja.index') }}#catalogo">Produtos</a><a href="{{ route('loja.index') }}#como-funciona">Como funciona</a><a href="{{ route('loja.tracking') }}">Rastrear pedido</a><a class="cart-link" href="{{ route('loja.cart') }}">Carrinho <b>{{ $cartCount }}</b></a></nav></header>
+<main>@include('partials.flash') @yield('content')</main>
+<footer><a href="{{ route('loja.index') }}" class="store-brand"><img src="{{ asset('images/alfarei-logo.png') }}" alt="{{ $settings->store_name }}"></a><div><p>{{ $settings->support_email ?: 'Atendimento personalizado para tirar sua ideia do papel.' }}</p>@if($settings->business_hours)<p>{{ $settings->business_hours }}</p>@endif</div><div class="store-socials">@if($settings->instagram_url)<a href="{{ $settings->instagram_url }}" target="_blank">Instagram</a>@endif @if($settings->facebook_url)<a href="{{ $settings->facebook_url }}" target="_blank">Facebook</a>@endif @if($settings->whatsapp)<a href="https://wa.me/{{ preg_replace('/\D/', '', $settings->whatsapp) }}?text={{ urlencode($settings->whatsapp_message ?: 'Olá! Vim pela loja virtual.') }}" target="_blank">WhatsApp</a>@endif</div></footer>
+</body></html>
