@@ -28,6 +28,7 @@
             @if(auth()->user()->canAccess('quotes'))<a class="{{ request()->routeIs('orcamentos.*') ? 'active' : '' }}" href="{{ route('orcamentos.index') }}">◫ <span>Orçamentos</span></a>@endif
             @if(auth()->user()->canAccess('orders'))<a class="{{ request()->routeIs('pedidos.*') ? 'active' : '' }}" href="{{ route('pedidos.index') }}">▣ <span>Pedidos</span></a>@endif
             @if(auth()->user()->canAccess('production'))<a class="{{ request()->routeIs('producao.*') ? 'active' : '' }}" href="{{ route('producao.index') }}">◒ <span>Produção</span></a>@endif
+            @if(auth()->user()->canAccess('production'))<a class="{{ request()->routeIs('maquinas.*') ? 'active' : '' }}" href="{{ route('maquinas.index') }}">⚙ <span>Máquinas e custos</span></a>@endif
             @if(auth()->user()->canAccess('deliveries'))<a class="{{ request()->routeIs('entregas.*') ? 'active' : '' }}" href="{{ route('entregas.index') }}">▹ <span>Entregas</span></a>@endif
             @if(auth()->user()->canAccess('notifications'))<a class="{{ request()->routeIs('notificacoes.*') ? 'active' : '' }}" href="{{ route('notificacoes.index') }}">✉ <span>Notificações</span></a>@endif
             @if(auth()->user()->canAccess('purchases'))<a class="{{ request()->routeIs('compras.*') ? 'active' : '' }}" href="{{ route('compras.index') }}">▤ <span>Compras</span></a>@endif
