@@ -75,6 +75,9 @@ Route::middleware('auth')->group(function () {
     Route::put('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'update'])->middleware('access:products')->name('produtos.technical-sheet.update');
     Route::resource('orcamentos', QuoteController::class)->except('show', 'destroy')->middleware('access:quotes');
     Route::post('orcamentos/{orcamento}/nova-versao', [QuoteController::class, 'createRevision'])->middleware('access:quotes')->name('orcamentos.revision');
+    Route::post('orcamentos/{orcamento}/anexos', [QuoteController::class, 'storeAttachment'])->middleware('access:quotes')->name('orcamentos.attachments.store');
+    Route::post('orcamentos/{orcamento}/anexos/{attachment}/aprovar', [QuoteController::class, 'approveAttachment'])->middleware('access:quotes')->name('orcamentos.attachments.approve');
+    Route::delete('orcamentos/{orcamento}/anexos/{attachment}', [QuoteController::class, 'destroyAttachment'])->middleware('access:quotes')->name('orcamentos.attachments.destroy');
     Route::post('orcamentos/{orcamento}/converter-em-pedido', [QuoteController::class, 'convertToOrder'])->middleware('access:quotes')->name('orcamentos.convert');
     Route::get('pedidos', [OrderController::class, 'index'])->middleware('access:orders')->name('pedidos.index');
     Route::get('pedidos/{pedido}', [OrderController::class, 'show'])->middleware('access:orders')->name('pedidos.show');

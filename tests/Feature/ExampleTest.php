@@ -154,6 +154,28 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('quote_items', ['unit_cost' => 40, 'total_cost' => 80]);
     }
 
+    public function test_quote_records_advanced_pricing_delivery_time_and_versioned_technical_attachment(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Técnico', 'customer_group' => 'final']);
+        $product = Product::create(['name' => 'Peça técnica', 'type' => 'product', 'base_price' => 100, 'production_cost' => 40]);
+
+        $this->actingAs($user)->post('/orcamentos', [
+            'customer_id' => $customer->id, 'status' => 'draft', 'discount' => 0, 'discount_percent' => 10,
+            'tax_percent' => 10, 'commission_percent' => 0, 'fee_percent' => 0, 'target_margin_percent' => 20,
+            'production_lead_days' => 3, 'delivery_lead_days' => 2,
+            'items' => [['product_id' => $product->id, 'description' => 'Peça técnica', 'quantity' => 1, 'unit_price' => 100, 'unit_cost' => 0]],
+        ])->assertRedirect();
+
+        $quote = Quote::firstOrFail();
+        $this->assertDatabaseHas('quotes', ['id' => $quote->id, 'total' => 90, 'delivery_lead_days' => 2, 'tax_percent' => 10, 'target_margin_percent' => 20]);
+        $this->assertSame('57.14', $quote->fresh()->suggested_total);
+
+        $this->actingAs($user)->post("/orcamentos/{$quote->id}/anexos", ['category' => 'technical', 'file' => UploadedFile::fake()->create('corte.svg', 10, 'image/svg+xml')])->assertRedirect();
+        $this->assertDatabaseHas('quote_attachments', ['quote_id' => $quote->id, 'original_name' => 'corte.svg', 'category' => 'technical', 'version' => 1]);
+    }
+
     public function test_customer_can_approve_a_quote_from_a_secure_public_link_and_download_pdf(): void
     {
         $user = User::factory()->create();

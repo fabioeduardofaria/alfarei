@@ -7,7 +7,7 @@ use App\Models\Product;
 class QuotePricingService
 {
     /** @param array<int, array<string, mixed>> $items */
-    public function calculate(array $items, float $discount = 0): array
+    public function calculate(array $items, float $discount = 0, float $discountPercent = 0, float $taxPercent = 0, float $commissionPercent = 0, float $feePercent = 0, float $targetMarginPercent = 20): array
     {
         $subtotal = 0.0;
         $costTotal = 0.0;
@@ -34,6 +34,19 @@ class QuotePricingService
             ];
         }
 
-        return ['items' => $normalized, 'subtotal' => round($subtotal, 2), 'cost_total' => round($costTotal, 2), 'total' => max(0, round($subtotal - $discount, 2))];
+        $percentDiscountAmount = round($subtotal * ($discountPercent / 100), 2);
+        $total = max(0, round($subtotal - $discount - $percentDiscountAmount, 2));
+        $commercialPercent = $taxPercent + $commissionPercent + $feePercent + $targetMarginPercent;
+        $suggestedTotal = $commercialPercent >= 100
+            ? 0
+            : round($costTotal / (1 - ($commercialPercent / 100)), 2);
+
+        return [
+            'items' => $normalized,
+            'subtotal' => round($subtotal, 2),
+            'cost_total' => round($costTotal, 2),
+            'total' => $total,
+            'suggested_total' => $suggestedTotal,
+        ];
     }
 }
