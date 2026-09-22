@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ asset('css/quotes.css') }}">
     <link rel="stylesheet" href="{{ asset('css/notifications.css') }}">
     <link rel="stylesheet" href="{{ asset('css/users.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/system-polish.css') }}">
 </head>
 <body>
 <div class="shell">
