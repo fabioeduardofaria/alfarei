@@ -4,7 +4,7 @@
 <section class="product-page">
     <div class="product-hero" @if($product->image_url) style="background-image:url('{{ $product->image_url }}')" @endif>
         <span>{{ $product->made_to_order ? 'Produzido sob encomenda' : 'Pronta entrega' }}</span>
-        <b>{{ strtoupper(substr($product->name, 0, 1)) }}</b>
+        @unless($product->image_url)<b>{{ strtoupper(substr($product->name, 0, 1)) }}</b>@endunless
     </div>
     <div class="product-info">
         <a class="back-store" href="{{ route('loja.index') }}">← Voltar à loja</a>

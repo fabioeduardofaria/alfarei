@@ -18,6 +18,9 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Services\ProductionWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
@@ -65,6 +68,21 @@ class ExampleTest extends TestCase
         ])->assertRedirect('/clientes');
 
         $this->assertDatabaseHas('customers', ['name' => 'Alfarei Teste', 'customer_group' => 'final']);
+    }
+
+    public function test_product_photo_upload_is_saved_for_the_store(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/produtos', [
+            'name' => 'Produto com foto', 'type' => 'product', 'base_price' => 100, 'production_cost' => 40,
+            'active' => true, 'image' => UploadedFile::fake()->image('produto.jpg'),
+        ])->assertRedirect('/produtos');
+
+        $product = Product::where('name', 'Produto com foto')->firstOrFail();
+        $this->assertStringStartsWith('/storage/products/', $product->image_url);
+        Storage::disk('public')->assertExists(Str::after($product->image_url, '/storage/'));
     }
 
     public function test_commercial_user_can_create_lead_and_register_activity(): void
