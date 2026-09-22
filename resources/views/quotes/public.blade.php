@@ -8,8 +8,7 @@
         :root { --ink:#173127; --gold:#bd8a15; --paper:#fff; --mist:#f5f4ef; --line:#d9dfda; --muted:#62736a; }
         * { box-sizing:border-box; } body { margin:0; background:var(--mist); color:#14251d; font:15px Arial, sans-serif; line-height:1.5; }
         .top { background:var(--ink); color:#fff; padding:24px 28px; } .top-inner,.page { max-width:980px; margin:auto; }
-        .brand { display:flex; gap:13px; align-items:center; font-weight:700; letter-spacing:.08em; } .mark { width:38px; height:38px; border:1px solid var(--gold); border-radius:50%; display:grid; place-items:center; color:#e9c25a; font:700 23px Georgia,serif; }
-        .brand small { display:block; color:#ddbe67; letter-spacing:.16em; font-size:9px; margin-top:1px; } .top h1 { font:700 30px Georgia,serif; margin:22px 0 3px; } .top p { margin:0; color:#d4ddd7; }
+        .proposal-logo { display:block; width:126px; height:83px; object-fit:contain; filter:brightness(0) invert(1); } .top h1 { font:700 30px Georgia,serif; margin:12px 0 3px; } .top p { margin:0; color:#d4ddd7; }
         .page { padding:26px 20px 42px; } .card { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:26px; margin-bottom:18px; box-shadow:0 8px 28px rgba(25,47,36,.06); }
         .summary { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; } .label { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; } .value { font-weight:700; margin-top:3px; }
         h2 { font:700 21px Georgia,serif; margin:0 0 16px; } table { width:100%; border-collapse:collapse; } th { text-align:left; padding:10px 8px; color:var(--muted); font-size:11px; letter-spacing:.08em; border-bottom:1px solid var(--line); } td { padding:13px 8px; border-bottom:1px solid #edf0ed; } th:last-child, td:last-child { text-align:right; } .total { display:flex; justify-content:flex-end; gap:36px; padding-top:18px; font-size:18px; } .total b { font-size:23px; color:var(--ink); }
@@ -21,7 +20,7 @@
 </head>
 <body>
 @php($status = ['draft'=>'Rascunho','sent'=>'Aguardando sua decisão','negotiation'=>'Em negociação','approved'=>'Aprovada','rejected'=>'Recusada','expired'=>'Expirada','cancelled'=>'Cancelada','superseded'=>'Substituída por nova versão'][$quote->status] ?? $quote->status)
-<header class="top"><div class="top-inner"><div class="brand"><span class="mark">A</span><span>ALFAREI<small>CNC · OPERAÇÃO</small></span></div><h1>Proposta comercial</h1><p>{{ $quote->number }} · Versão {{ $quote->version }}</p></div></header>
+<header class="top"><div class="top-inner"><img class="proposal-logo" src="{{ asset('images/alfarei-logo.png') }}" alt="Alfarei"><h1>Proposta comercial</h1><p>{{ $quote->number }} · Versão {{ $quote->version }}</p></div></header>
 <main class="page">
     @if(session('success'))<div class="flash">{{ session('success') }}</div>@endif
     <section class="card summary"><div><div class="label">Cliente</div><div class="value">{{ $quote->customer->name }}</div></div><div><div class="label">Validade</div><div class="value">{{ $quote->valid_until?->format('d/m/Y') ?? 'Não informada' }}</div></div><div><div class="label">Situação</div><div class="value">{{ $status }}</div></div></section>

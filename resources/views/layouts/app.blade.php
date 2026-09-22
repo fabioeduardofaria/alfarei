@@ -10,11 +10,12 @@
     <link rel="stylesheet" href="{{ asset('css/users.css') }}">
     <link rel="stylesheet" href="{{ asset('css/system-polish.css') }}?v={{ filemtime(public_path('css/system-polish.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/crm.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/brand.css') }}?v={{ filemtime(public_path('css/brand.css')) }}">
 </head>
 <body>
 <div class="shell">
     <aside class="sidebar">
-        <a class="brand" href="{{ route('dashboard') }}"><span class="brand-mark">A</span><span><b>ALFAREI</b><small>CNC · OPERAÇÃO</small></span></a>
+        <a class="brand" href="{{ route('dashboard') }}" aria-label="Alfarei CNC — painel"><img class="brand-logo" src="{{ asset('images/alfarei-logo.png') }}" alt="Alfarei"></a>
         <nav>
             <p>VISÃO</p>
             @if(auth()->user()->canAccess('dashboard'))<a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">⌂ <span>Painel</span></a>@endif

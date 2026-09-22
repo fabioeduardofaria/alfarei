@@ -34,13 +34,14 @@ class ExampleTest extends TestCase
 
         $response->assertOk();
         $this->get('/painel')->assertRedirect('/entrar');
+        $this->get('/entrar')->assertOk()->assertSee('images/alfarei-logo.png');
     }
 
     public function test_user_permissions_block_direct_access_to_restricted_modules(): void
     {
         $user = User::factory()->create(['role' => 'commercial', 'permissions' => ['dashboard']]);
 
-        $this->actingAs($user)->get('/painel')->assertOk()->assertDontSee('Financeiro')->assertDontSee('Usuários e acessos');
+        $this->actingAs($user)->get('/painel')->assertOk()->assertSee('images/alfarei-logo.png')->assertDontSee('Financeiro')->assertDontSee('Usuários e acessos');
         $this->actingAs($user)->get('/financeiro')->assertForbidden();
         $this->actingAs($user)->get('/usuarios')->assertForbidden();
     }
@@ -183,8 +184,9 @@ class ExampleTest extends TestCase
         $quote = Quote::create(['number' => 'ORC-2026-PUBLICA', 'customer_id' => $customer->id, 'created_by' => $user->id, 'version' => 1, 'status' => 'sent', 'valid_until' => today()->addDays(7), 'deposit_percent' => 50, 'production_lead_days' => 5, 'payment_terms' => '50% de entrada.', 'approval_token' => 'token-publico-seguro', 'subtotal' => 200, 'cost_total' => 80, 'total' => 200]);
         QuoteItem::create(['quote_id' => $quote->id, 'description' => 'Peça personalizada', 'type' => 'custom', 'quantity' => 1, 'unit_price' => 200, 'unit_cost' => 80, 'total' => 200, 'total_cost' => 80]);
 
-        $this->get('/proposta/token-publico-seguro')->assertOk()->assertSee('Proposta comercial')->assertSee('Peça personalizada');
-        $this->get('/proposta/token-publico-seguro/pdf')->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->get('/proposta/token-publico-seguro')->assertOk()->assertSee('images/alfarei-logo.png')->assertSee('Proposta comercial')->assertSee('Peça personalizada');
+        $pdf = $this->get('/proposta/token-publico-seguro/pdf')->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->assertStringContainsString('/Subtype /Image', $pdf->getContent());
         $this->post('/proposta/token-publico-seguro/resposta', ['decision' => 'approved', 'response' => 'Podem seguir com a produção.'])->assertRedirect('/proposta/token-publico-seguro');
 
         $this->assertDatabaseHas('quotes', ['id' => $quote->id, 'status' => 'approved', 'customer_response' => 'Podem seguir com a produção.']);
