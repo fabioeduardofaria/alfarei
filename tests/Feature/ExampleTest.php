@@ -2,17 +2,19 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\Customer;
-use App\Models\Product;
-use App\Models\Quote;
-use App\Models\QuoteItem;
-use App\Models\Order;
+use App\Models\FinanceEntry;
+use App\Models\Lead;
 use App\Models\Machine;
 use App\Models\Material;
+use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Product;
+use App\Models\PurchaseOrder;
+use App\Models\Quote;
+use App\Models\QuoteItem;
 use App\Models\Supplier;
-use App\Models\FinanceEntry;
+use App\Models\User;
 use App\Services\ProductionWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -62,6 +64,18 @@ class ExampleTest extends TestCase
         ])->assertRedirect('/clientes');
 
         $this->assertDatabaseHas('customers', ['name' => 'Alfarei Teste', 'customer_group' => 'final']);
+    }
+
+    public function test_commercial_user_can_create_lead_and_register_activity(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial', 'permissions' => ['crm']]);
+
+        $this->actingAs($user)->post('/crm', ['name' => 'Contato CRM', 'email' => 'crm@cliente.test', 'stage' => 'new', 'estimated_value' => 1250, 'probability' => 25])->assertRedirect();
+
+        $lead = Lead::firstOrFail();
+        $this->assertDatabaseHas('lead_activities', ['lead_id' => $lead->id, 'type' => 'created']);
+        $this->actingAs($user)->post("/crm/{$lead->id}/atividades", ['type' => 'call', 'description' => 'Ligação inicial realizada.'])->assertRedirect();
+        $this->assertDatabaseHas('lead_activities', ['lead_id' => $lead->id, 'type' => 'call']);
     }
 
     public function test_quote_uses_product_cost_when_calculating_margin(): void
@@ -163,7 +177,7 @@ class ExampleTest extends TestCase
 
         $this->actingAs($user)->post('/compras', ['supplier_id' => $supplier->id, 'status' => 'ordered', 'expected_at' => '2026-10-01', 'items' => [['material_id' => $material->id, 'quantity' => 4, 'unit_cost' => 12.5]]])->assertRedirect();
 
-        $purchase = \App\Models\PurchaseOrder::firstOrFail();
+        $purchase = PurchaseOrder::firstOrFail();
         $this->actingAs($user)->post("/compras/{$purchase->id}/receber")->assertRedirect();
         $this->actingAs($user)->post("/compras/{$purchase->id}/receber")->assertRedirect();
 

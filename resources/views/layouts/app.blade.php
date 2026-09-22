@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ asset('css/notifications.css') }}">
     <link rel="stylesheet" href="{{ asset('css/users.css') }}">
     <link rel="stylesheet" href="{{ asset('css/system-polish.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/crm.css') }}">
 </head>
 <body>
 <div class="shell">
@@ -19,6 +20,7 @@
             @if(auth()->user()->canAccess('dashboard'))<a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">⌂ <span>Painel</span></a>@endif
             <p>CADASTROS</p>
             @if(auth()->user()->canAccess('customers'))<a class="{{ request()->routeIs('clientes.*') ? 'active' : '' }}" href="{{ route('clientes.index') }}">◉ <span>Clientes</span></a>@endif
+            @if(auth()->user()->canAccess('crm'))<a class="{{ request()->routeIs('crm.*') ? 'active' : '' }}" href="{{ route('crm.index') }}">◌ <span>CRM e oportunidades</span></a>@endif
             @if(auth()->user()->canAccess('materials'))<a class="{{ request()->routeIs('materiais.*') ? 'active' : '' }}" href="{{ route('materiais.index') }}">◇ <span>Materiais</span></a>@endif
             @if(auth()->user()->canAccess('suppliers'))<a class="{{ request()->routeIs('fornecedores.*') ? 'active' : '' }}" href="{{ route('fornecedores.index') }}">◌ <span>Fornecedores</span></a>@endif
             @if(auth()->user()->canAccess('products'))<a class="{{ request()->routeIs('produtos.*') ? 'active' : '' }}" href="{{ route('produtos.index') }}">▧ <span>Produtos e serviços</span></a>@endif

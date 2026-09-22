@@ -28,7 +28,7 @@ class User extends Authenticatable
     ];
 
     public const MODULE_LABELS = [
-        'dashboard' => 'Painel', 'customers' => 'Clientes', 'materials' => 'Materiais',
+        'dashboard' => 'Painel', 'customers' => 'Clientes', 'crm' => 'CRM e oportunidades', 'materials' => 'Materiais',
         'suppliers' => 'Fornecedores', 'products' => 'Produtos e ficha técnica', 'quotes' => 'Orçamentos',
         'orders' => 'Pedidos', 'production' => 'Produção', 'deliveries' => 'Entregas',
         'purchases' => 'Compras', 'finance' => 'Financeiro', 'notifications' => 'Notificações',
@@ -39,12 +39,12 @@ class User extends Authenticatable
     {
         return match ($role) {
             'admin' => array_keys(self::MODULE_LABELS),
-            'commercial' => ['dashboard', 'customers', 'products', 'quotes', 'orders', 'notifications'],
+            'commercial' => ['dashboard', 'customers', 'crm', 'products', 'quotes', 'orders', 'notifications'],
             'production' => ['dashboard', 'materials', 'products', 'orders', 'production', 'notifications'],
             'stock_purchases' => ['dashboard', 'materials', 'products', 'suppliers', 'purchases'],
             'finance' => ['dashboard', 'orders', 'finance'],
             'logistics' => ['dashboard', 'orders', 'deliveries', 'notifications'],
-            'service' => ['dashboard', 'customers', 'orders', 'notifications'],
+            'service' => ['dashboard', 'customers', 'crm', 'orders', 'notifications'],
             default => [],
         };
     }

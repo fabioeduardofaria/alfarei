@@ -2,21 +2,22 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerNotificationController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\MaterialController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\QuoteController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\ProductionController;
-use App\Http\Controllers\TechnicalSheetController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\LeadController;
+use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreSettingsController;
-use App\Http\Controllers\DeliveryController;
-use App\Http\Controllers\CustomerNotificationController;
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TechnicalSheetController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -44,6 +45,10 @@ Route::middleware('auth')->group(function () {
     Route::get('administracao/loja', [StoreSettingsController::class, 'edit'])->middleware('access:store_settings')->name('loja.settings.edit');
     Route::put('administracao/loja', [StoreSettingsController::class, 'update'])->middleware('access:store_settings')->name('loja.settings.update');
     Route::resource('clientes', CustomerController::class)->except('show', 'destroy')->middleware('access:customers');
+    Route::resource('crm', LeadController::class)->parameters(['crm' => 'lead'])->except('destroy')->middleware('access:crm');
+    Route::patch('crm/{lead}/etapa', [LeadController::class, 'changeStage'])->middleware('access:crm')->name('crm.stage');
+    Route::post('crm/{lead}/atividades', [LeadController::class, 'addActivity'])->middleware('access:crm')->name('crm.activities.store');
+    Route::post('crm/{lead}/converter-cliente', [LeadController::class, 'convertToCustomer'])->middleware('access:crm')->name('crm.convert-customer');
     Route::resource('materiais', MaterialController::class)->except('show', 'destroy')->middleware('access:materials');
     Route::resource('fornecedores', SupplierController::class)->except('show', 'destroy')->middleware('access:suppliers');
     Route::get('compras', [PurchaseOrderController::class, 'index'])->middleware('access:purchases')->name('compras.index');
