@@ -10,6 +10,22 @@
         <a class="secondary" href="{{ route('maquinas.index') }}">← Máquinas</a>
     </div>
 
+    <form class="panel maintenance-filter" method="GET">
+        <label>De
+            <input type="date" name="from" value="{{ $from }}">
+        </label>
+        <label>Até
+            <input type="date" name="to" value="{{ $to }}">
+        </label>
+        <button class="secondary">Aplicar período</button>
+    </form>
+
+    <section class="maintenance-summary">
+        <article><span>CUSTO NO PERÍODO</span><b>R$ {{ number_format($summary['total'], 2, ',', '.') }}</b><small>{{ $summary['count'] }} manutenção(ões)</small></article>
+        <article><span>PREVENTIVA</span><b>R$ {{ number_format($summary['preventive'], 2, ',', '.') }}</b><small>Planejamento e prevenção</small></article>
+        <article><span>CORRETIVA</span><b>R$ {{ number_format($summary['corrective'], 2, ',', '.') }}</b><small>Reparos e paradas</small></article>
+    </section>
+
     <form class="panel form-card" method="POST" action="{{ route('maquinas.maintenances.store', $machine) }}">
         @csrf
         <div class="form-section">
@@ -42,7 +58,7 @@
         <table>
             <thead><tr><th>TIPO</th><th>DATA</th><th>HORÍMETRO</th><th>CUSTO</th><th>SERVIÇO</th><th>STATUS</th><th></th></tr></thead>
             <tbody>
-                @forelse($machine->maintenances->sortByDesc('scheduled_for') as $maintenance)
+                @forelse($maintenances as $maintenance)
                     <tr>
                         <td>{{ $maintenance->type === 'preventive' ? 'Preventiva' : 'Corretiva' }}</td>
                         <td>{{ $maintenance->scheduled_for?->format('d/m/Y') }}</td>

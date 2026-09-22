@@ -165,6 +165,10 @@ class ExampleTest extends TestCase
         $this->actingAs($user)->post("/maquinas/{$machine->id}/manutencoes/{$maintenance->id}/concluir")->assertRedirect();
         $this->assertDatabaseHas('machine_maintenances', ['id' => $maintenance->id, 'status' => 'completed', 'cost' => 180.50]);
         $this->assertDatabaseHas('machines', ['id' => $machine->id, 'next_maintenance_at' => null]);
+        $this->actingAs($user)->get("/maquinas/{$machine->id}/manutencoes?from=2026-10-01&to=2026-10-31")
+            ->assertOk()
+            ->assertSee('R$ 180,50')
+            ->assertSee('Preventiva');
     }
 
     public function test_bom_material_is_reserved_then_consumed_when_cutting_starts(): void

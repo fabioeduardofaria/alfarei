@@ -39,9 +39,31 @@ class MachineController extends Controller
         return redirect()->route('maquinas.index')->with('success', 'Máquina atualizada.');
     }
 
-    public function maintenances(Machine $maquina): View
+    public function maintenances(Request $request, Machine $maquina): View
     {
-        return view('machines.maintenances', ['machine' => $maquina->load('maintenances')]);
+        $filters = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+        $from = $filters['from'] ?? now()->startOfMonth()->toDateString();
+        $to = $filters['to'] ?? now()->endOfMonth()->toDateString();
+        $maintenances = $maquina->maintenances()
+            ->whereBetween('scheduled_for', [$from, $to])
+            ->latest('scheduled_for')
+            ->get();
+
+        return view('machines.maintenances', [
+            'machine' => $maquina,
+            'maintenances' => $maintenances,
+            'from' => $from,
+            'to' => $to,
+            'summary' => [
+                'total' => $maintenances->sum('cost'),
+                'preventive' => $maintenances->where('type', 'preventive')->sum('cost'),
+                'corrective' => $maintenances->where('type', 'corrective')->sum('cost'),
+                'count' => $maintenances->count(),
+            ],
+        ]);
     }
 
     public function storeMaintenance(Request $request, Machine $maquina): RedirectResponse
