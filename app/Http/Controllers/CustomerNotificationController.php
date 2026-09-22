@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomerNotification;
+use App\Services\CustomerNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
