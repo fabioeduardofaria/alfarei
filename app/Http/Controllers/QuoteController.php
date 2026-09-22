@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class QuoteController extends Controller
@@ -21,7 +22,7 @@ class QuoteController extends Controller
 
     public function index(Request $request): View
     {
-        Quote::whereIn('status', ['draft', 'sent', 'negotiation'])
+        Quote::whereIn('status', ['sent', 'negotiation'])
             ->whereDate('valid_until', '<', today())
             ->update(['status' => 'expired']);
         $quotes = Quote::with('customer')->latest();
@@ -43,7 +44,7 @@ class QuoteController extends Controller
         $quote = DB::transaction(function () use ($data, $request) {
             $calculated = $this->calculate($data);
             $number = sprintf('ORC-%s-%04d', now()->format('Y'), Quote::count() + 1);
-            $quote = Quote::create(array_merge(collect($data)->except('items')->all(), $calculated, ['number' => $number, 'version' => 1, 'created_by' => $request->user()->id, 'approval_token' => $data['status'] === 'sent' ? Str::random(60) : null, 'sent_at' => $data['status'] === 'sent' ? now() : null]));
+            $quote = Quote::create(array_merge(collect($data)->except('items')->all(), $calculated, ['number' => $number, 'version' => 1, 'created_by' => $request->user()->id, 'status' => 'draft']));
             $quote->items()->createMany($calculated['items']);
 
             return $quote;
@@ -54,20 +55,60 @@ class QuoteController extends Controller
 
     public function edit(Quote $orcamento): View
     {
+        if ($orcamento->status !== 'draft') {
+            $orcamento->load(['customer', 'creator', 'items', 'attachments.uploader', 'parent']);
+            $root = $orcamento->parent ?? $orcamento;
+
+            return view('quotes.review', [
+                'quote' => $orcamento,
+                'versions' => Quote::where('id', $root->id)->orWhere('parent_quote_id', $root->id)->orderBy('version')->get(),
+            ]);
+        }
+
         return $this->form($orcamento->load('items'));
     }
 
     public function update(Request $request, Quote $orcamento): RedirectResponse
     {
+        abort_unless($orcamento->status === 'draft', 409, 'Esta versão já foi publicada. Crie uma nova versão para alterar a proposta.');
         $data = $this->validated($request);
         DB::transaction(function () use ($data, $orcamento) {
+            $orcamento = Quote::whereKey($orcamento->id)->lockForUpdate()->firstOrFail();
+            abort_unless($orcamento->status === 'draft', 409, 'Esta versão já foi publicada. Crie uma nova versão para alterar a proposta.');
             $calculated = $this->calculate($data);
-            $orcamento->update(array_merge(collect($data)->except('items')->all(), $calculated, ['approval_token' => $data['status'] === 'sent' ? ($orcamento->approval_token ?: Str::random(60)) : $orcamento->approval_token, 'sent_at' => $data['status'] === 'sent' ? ($orcamento->sent_at ?: now()) : $orcamento->sent_at]));
+            $orcamento->update(array_merge(collect($data)->except('items')->all(), $calculated, ['status' => 'draft']));
             $orcamento->items()->delete();
             $orcamento->items()->createMany($calculated['items']);
         });
 
-        return redirect()->route('orcamentos.edit', $orcamento)->with('success', 'Orçamento atualizado.');
+        return redirect()->route('orcamentos.edit', $orcamento)->with('success', 'Rascunho salvo. Revise os valores e clique em Enviar proposta quando estiver pronto.');
+    }
+
+    public function send(Quote $orcamento): RedirectResponse
+    {
+        DB::transaction(function () use ($orcamento) {
+            $quote = Quote::whereKey($orcamento->id)->lockForUpdate()->firstOrFail();
+            abort_unless($quote->status === 'draft', 409, 'Somente rascunhos podem ser publicados.');
+            if (! $quote->valid_until || $quote->valid_until->isBefore(today()) || ! $quote->items()->exists() || $quote->total <= 0) {
+                throw ValidationException::withMessages([
+                    'send' => 'Informe uma validade futura e pelo menos um item com valor antes de enviar.',
+                ]);
+            }
+
+            $quote->update([
+                'status' => 'sent',
+                'approval_token' => $quote->approval_token ?: Str::random(60),
+                'sent_at' => now(),
+            ]);
+
+            if ($quote->parent_quote_id) {
+                Quote::where(function ($query) use ($quote) {
+                    $query->whereKey($quote->parent_quote_id)->orWhere('parent_quote_id', $quote->parent_quote_id);
+                })->where('id', '!=', $quote->id)->whereIn('status', ['sent', 'negotiation'])->update(['status' => 'superseded']);
+            }
+        });
+
+        return redirect()->route('orcamentos.edit', $orcamento)->with('success', 'Versão publicada e bloqueada. O link está pronto para ser compartilhado com o cliente.');
     }
 
     public function convertToOrder(Quote $orcamento, Request $request): RedirectResponse
@@ -82,7 +123,8 @@ class QuoteController extends Controller
 
     public function createRevision(Quote $orcamento, Request $request): RedirectResponse
     {
-        $orcamento->load('items');
+        abort_if($orcamento->status === 'draft', 409, 'Conclua o rascunho atual antes de criar outra versão.');
+        $orcamento->load(['items', 'attachments']);
         $rootNumber = preg_replace('/-V\d+$/', '', $orcamento->parent?->number ?? $orcamento->number);
         $nextVersion = Quote::where('number', 'like', $rootNumber.'%')->max('version') + 1;
         $revision = DB::transaction(function () use ($orcamento, $request, $rootNumber, $nextVersion) {
@@ -91,6 +133,17 @@ class QuoteController extends Controller
                 'created_by' => $request->user()->id, 'version' => $nextVersion, 'status' => 'draft',
             ]);
             $revision->items()->createMany($orcamento->items->map(fn ($item) => $item->only(['product_id', 'description', 'type', 'quantity', 'unit_price', 'unit_cost', 'total', 'total_cost']))->all());
+            foreach ($orcamento->attachments->where('approved', true) as $attachment) {
+                if (! Storage::disk('public')->exists($attachment->path)) {
+                    continue;
+                }
+                $extension = pathinfo($attachment->path, PATHINFO_EXTENSION);
+                $path = "quotes/{$revision->id}/".Str::random(40).($extension ? '.'.$extension : '');
+                Storage::disk('public')->copy($attachment->path, $path);
+                $revision->attachments()->create($attachment->only(['original_name', 'mime_type', 'size', 'category']) + [
+                    'uploaded_by' => $request->user()->id, 'path' => $path, 'version' => 1, 'approved' => false,
+                ]);
+            }
 
             return $revision;
         });
@@ -105,6 +158,7 @@ class QuoteController extends Controller
 
     public function storeAttachment(Request $request, Quote $orcamento): RedirectResponse
     {
+        abort_unless($orcamento->status === 'draft', 409, 'Arquivos de uma proposta publicada não podem ser alterados.');
         $data = $request->validate(['file' => ['required', 'file', 'max:51200', 'mimes:dxf,svg,cdr,ai,pdf,jpg,jpeg,png,nc,tap,gcode'], 'category' => ['required', 'in:technical,art,reference,gcode']]);
         $file = $data['file'];
         $version = ((int) $orcamento->attachments()->where('category', $data['category'])->max('version')) + 1;
@@ -116,6 +170,7 @@ class QuoteController extends Controller
 
     public function approveAttachment(Quote $orcamento, QuoteAttachment $attachment): RedirectResponse
     {
+        abort_unless($orcamento->status === 'draft', 409, 'Arquivos de uma proposta publicada não podem ser alterados.');
         abort_unless($attachment->quote_id === $orcamento->id, 404);
         $orcamento->attachments()->where('category', $attachment->category)->update(['approved' => false]);
         $attachment->update(['approved' => true]);
@@ -125,6 +180,7 @@ class QuoteController extends Controller
 
     public function destroyAttachment(Quote $orcamento, QuoteAttachment $attachment): RedirectResponse
     {
+        abort_unless($orcamento->status === 'draft', 409, 'Arquivos de uma proposta publicada não podem ser alterados.');
         abort_unless($attachment->quote_id === $orcamento->id, 404);
         Storage::disk('public')->delete($attachment->path);
         $attachment->delete();
@@ -137,7 +193,7 @@ class QuoteController extends Controller
         $request->mergeIfMissing(['deposit_percent' => 50]);
 
         return $request->validate([
-            'customer_id' => ['required', 'exists:customers,id'], 'status' => ['required', 'in:draft,sent,negotiation,approved,rejected,expired,cancelled'],
+            'customer_id' => ['required', 'exists:customers,id'], 'status' => ['nullable', 'in:draft'],
             'valid_until' => ['nullable', 'date'], 'discount' => ['required', 'numeric', 'min:0'], 'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'tax_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'commission_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'target_margin_percent' => ['nullable', 'numeric', 'min:0', 'max:99.99'], 'notes' => ['nullable', 'string', 'max:3000'], 'payment_terms' => ['nullable', 'string', 'max:3000'], 'production_lead_days' => ['nullable', 'integer', 'min:0', 'max:365'], 'delivery_lead_days' => ['nullable', 'integer', 'min:0', 'max:365'], 'deposit_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'items' => ['required', 'array', 'min:1'], 'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.description' => ['required', 'string', 'max:200'], 'items.*.quantity' => ['required', 'numeric', 'gt:0'],

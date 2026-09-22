@@ -20,7 +20,7 @@
     </style>
 </head>
 <body>
-@php($status = ['draft'=>'Rascunho','sent'=>'Aguardando sua decisão','negotiation'=>'Em negociação','approved'=>'Aprovada','rejected'=>'Recusada','expired'=>'Expirada','cancelled'=>'Cancelada'][$quote->status] ?? $quote->status)
+@php($status = ['draft'=>'Rascunho','sent'=>'Aguardando sua decisão','negotiation'=>'Em negociação','approved'=>'Aprovada','rejected'=>'Recusada','expired'=>'Expirada','cancelled'=>'Cancelada','superseded'=>'Substituída por nova versão'][$quote->status] ?? $quote->status)
 <header class="top"><div class="top-inner"><div class="brand"><span class="mark">A</span><span>ALFAREI<small>CNC · OPERAÇÃO</small></span></div><h1>Proposta comercial</h1><p>{{ $quote->number }} · Versão {{ $quote->version }}</p></div></header>
 <main class="page">
     @if(session('success'))<div class="flash">{{ session('success') }}</div>@endif

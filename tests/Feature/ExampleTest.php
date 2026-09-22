@@ -191,6 +191,56 @@ class ExampleTest extends TestCase
         $this->assertNotNull($quote->fresh()->approved_at);
     }
 
+    public function test_sent_quote_is_immutable_and_revision_gets_its_own_link(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente das versões', 'customer_group' => 'final']);
+        $quote = Quote::create([
+            'number' => 'ORC-2026-VERSAO', 'customer_id' => $customer->id, 'created_by' => $user->id,
+            'version' => 1, 'status' => 'draft', 'valid_until' => today()->addWeek(),
+            'subtotal' => 200, 'cost_total' => 80, 'total' => 200,
+        ]);
+        QuoteItem::create([
+            'quote_id' => $quote->id, 'description' => 'Peça original', 'type' => 'custom',
+            'quantity' => 1, 'unit_price' => 200, 'unit_cost' => 80, 'total' => 200, 'total_cost' => 80,
+        ]);
+        Storage::disk('public')->put('quotes/original/desenho.svg', '<svg></svg>');
+        $attachment = $quote->attachments()->create([
+            'uploaded_by' => $user->id, 'original_name' => 'desenho.svg', 'path' => 'quotes/original/desenho.svg',
+            'mime_type' => 'image/svg+xml', 'size' => 11, 'category' => 'technical', 'version' => 1, 'approved' => true,
+        ]);
+
+        $this->actingAs($user)->post("/orcamentos/{$quote->id}/enviar")->assertRedirect();
+        $quote->refresh();
+        $this->assertSame('sent', $quote->status);
+        $this->assertNotNull($quote->approval_token);
+        $this->get("/orcamentos/{$quote->id}/edit")->assertOk()->assertSee('Esta versão foi publicada e preservada.');
+        $this->put("/orcamentos/{$quote->id}", [
+            'customer_id' => $customer->id, 'status' => 'approved', 'discount' => 0,
+            'items' => [['description' => 'Preço alterado', 'quantity' => 1, 'unit_price' => 20, 'unit_cost' => 10]],
+        ])->assertStatus(409);
+        $this->post("/orcamentos/{$quote->id}/anexos", [
+            'category' => 'technical', 'file' => UploadedFile::fake()->create('alteracao.svg', 2, 'image/svg+xml'),
+        ])->assertStatus(409);
+        $this->assertDatabaseHas('quote_items', ['quote_id' => $quote->id, 'description' => 'Peça original', 'unit_price' => 200]);
+
+        $this->post("/orcamentos/{$quote->id}/nova-versao")->assertRedirect();
+        $revision = Quote::where('parent_quote_id', $quote->id)->firstOrFail();
+        $this->assertSame('draft', $revision->status);
+        $this->assertNull($revision->approval_token);
+        $this->assertSame('ORC-2026-VERSAO-V2', $revision->number);
+        $copiedAttachment = $revision->attachments()->firstOrFail();
+        $this->assertSame($attachment->original_name, $copiedAttachment->original_name);
+        $this->assertNotSame($attachment->path, $copiedAttachment->path);
+        $this->assertFalse($copiedAttachment->approved);
+        Storage::disk('public')->assertExists($copiedAttachment->path);
+        $this->post("/orcamentos/{$revision->id}/enviar")->assertRedirect();
+        $this->assertDatabaseHas('quotes', ['id' => $quote->id, 'status' => 'superseded']);
+        $this->post("/proposta/{$quote->approval_token}/resposta", ['decision' => 'approved'])->assertSessionHasErrors('response');
+        $this->assertNotSame($quote->approval_token, $revision->fresh()->approval_token);
+    }
+
     public function test_technical_sheet_calculates_machine_time_cost_for_quotes(): void
     {
         $user = User::factory()->create();

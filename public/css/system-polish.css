@@ -23,3 +23,48 @@ body{line-height:1.35}.content{padding-bottom:56px}.topbar{box-shadow:0 1px 0 rg
 @media(max-width:1100px){.quote-editor .pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:800px){.quote-editor .pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:530px){.topbar-search{display:none}.quote-editor .pricing-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.quote-summary .margin-box{grid-column:1/-1}.attachments-panel,.proposal-link-panel{padding:18px}.attachment-actions{flex-wrap:wrap}}
+
+.status.superseded{background:#edf0f3;color:#65727c}
+.quote-apply-price{margin-top:10px;padding:9px 10px;white-space:normal}
+.quote-price-note{display:block;margin:7px 0 4px;color:var(--muted);font-size:9px;line-height:1.35}
+.quote-send-panel{width:min(970px,100%);display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:16px;padding:20px 22px}
+.quote-send-panel h2{font-size:15px;margin:0 0 5px}
+.quote-send-panel p:not(.eyebrow){font-size:11px;color:var(--muted);margin:0;line-height:1.45}
+.quote-send-panel form{flex:0 0 auto}
+.quote-send-panel button:disabled{opacity:.55;cursor:not-allowed}
+.quote-review-workspace{display:grid;grid-template-columns:minmax(0,970px) 255px;gap:16px;align-items:start}
+.quote-review-workspace>div{min-width:0}
+.quote-review-card,.quote-review-actions{padding:22px}
+.quote-review-head{display:flex;justify-content:space-between;gap:15px;align-items:start}
+.quote-review-head h2{font-size:19px;margin:0}
+.quote-review-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;border-top:1px solid #e7ece6;border-bottom:1px solid #e7ece6;margin:20px 0;padding:17px 0}
+.quote-review-facts small,.quote-review-facts b{display:block}
+.quote-review-facts small{color:var(--muted);font-size:10px;margin-bottom:5px}
+.quote-review-facts b{font-size:11px;overflow-wrap:anywhere}
+.quote-review-card h3,.quote-review-versions h3{font-size:12px;margin:17px 0 11px}
+.quote-review-items>div{display:flex;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid #edf0ec;font-size:11px}
+.quote-review-items small{display:block;color:var(--muted);margin-top:4px}
+.quote-review-items b{white-space:nowrap}
+.quote-review-total{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:17px 0;border-bottom:1px solid #e7ece6}
+.quote-review-total span{font-size:11px}
+.quote-review-total strong{font-size:21px}
+.quote-review-terms{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.quote-review-terms p,.quote-review-response p{white-space:pre-line;font-size:11px;line-height:1.5;margin:0 0 8px}
+.quote-review-terms small{font-size:10px;color:var(--muted)}
+.quote-review-response{background:#f3f7f2;border-left:3px solid #4f8b72;padding:13px;margin-top:20px;font-size:11px}
+.quote-review-actions{height:max-content}
+.quote-review-actions h2{font-size:15px;margin:0 0 7px}
+.quote-review-actions p{font-size:11px;color:var(--muted);line-height:1.45;margin:0 0 16px}
+.quote-review-actions form+form{margin-top:9px}
+.quote-review-actions button{margin-top:9px}
+.quote-review-versions{border-top:1px solid #e7ece6;margin-top:20px;padding-top:5px}
+.quote-review-versions a{display:flex;justify-content:space-between;gap:5px;color:#416b55;text-decoration:none;font-size:10px;padding:9px 0;border-top:1px solid #edf0ec}
+.quote-review-versions a.current{color:#26332c;font-weight:bold}
+.quote-review-versions span{margin-left:auto}
+.attachment-row>div:first-child{min-width:0}
+.attachment-row a b{overflow-wrap:anywhere}
+.attachment-row small{line-height:1.35}
+@media(max-width:1600px){.quote-review-workspace{grid-template-columns:1fr}.quote-review-actions{max-width:970px}}
+@media(max-width:1300px){.quote-workspace{grid-template-columns:1fr}.quote-summary{max-width:970px}}
+@media(max-width:800px){.quote-send-panel{display:block}.quote-send-panel form{margin-top:14px}}
+@media(max-width:530px){.quote-review-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.quote-review-terms{grid-template-columns:1fr}.quote-review-head{display:block}.quote-review-head .status{margin-top:9px}}

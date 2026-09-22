@@ -24,21 +24,20 @@ class QuoteApprovalController extends Controller
         $quote = $this->quote($token);
         $this->expireIfNeeded($quote);
 
-        if (! in_array($quote->status, ['sent', 'negotiation'], true)) {
-            return back()->withErrors(['response' => 'Esta proposta já recebeu uma decisão e não pode mais ser alterada.']);
-        }
-
         $data = $request->validate([
             'decision' => ['required', 'in:approved,rejected'],
             'response' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $quote->update([
+        $updated = Quote::whereKey($quote->id)->whereIn('status', ['sent', 'negotiation'])->update([
             'status' => $data['decision'],
             'customer_response' => $data['response'] ?? null,
             'approved_at' => $data['decision'] === 'approved' ? now() : null,
             'rejected_at' => $data['decision'] === 'rejected' ? now() : null,
         ]);
+        if (! $updated) {
+            return back()->withErrors(['response' => 'Esta versão já foi respondida ou substituída. Confira a situação atual da proposta.']);
+        }
 
         return redirect()->route('proposta.public', $quote->approval_token)
             ->with('success', $data['decision'] === 'approved'
@@ -64,7 +63,7 @@ class QuoteApprovalController extends Controller
 
     private function expireIfNeeded(Quote $quote): void
     {
-        if ($quote->valid_until?->isBefore(today()) && in_array($quote->status, ['draft', 'sent', 'negotiation'], true)) {
+        if ($quote->valid_until?->isBefore(today()) && in_array($quote->status, ['sent', 'negotiation'], true)) {
             $quote->update(['status' => 'expired']);
             $quote->refresh();
         }
