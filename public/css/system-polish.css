@@ -5,3 +5,20 @@ body{line-height:1.35}.content{padding-bottom:56px}.topbar{box-shadow:0 1px 0 rg
 .filter{max-width:600px;gap:0;align-items:stretch}.filter select{border:1px solid #dce1db;border-right:0;padding:0 10px;font-size:12px;color:#46534b;min-height:39px}.filter select:first-child{border-radius:5px 0 0 5px}.filter input+select{border-left:0}.filter input{min-height:39px}.filter button{min-height:39px}.table-panel{background:var(--surface)}.table-panel table{min-width:720px}.table-panel thead{background:#fafbf9}.table-panel th{padding-top:13px;padding-bottom:12px;border-bottom:1px solid #e9ede8}.table-panel td{vertical-align:middle;padding-top:15px;padding-bottom:15px}.table-panel tbody tr{transition:background .12s}.table-panel tbody tr:hover{background:#fbfcfa}.table-panel .actions-cell{white-space:nowrap}.status,.tag{display:inline-flex;align-items:center;min-height:22px}.pagination{border-top:1px solid #edf0ec;background:#fcfdfb}.flash{border:1px solid transparent;box-shadow:0 4px 16px rgba(29,39,34,.04)}.flash.success{border-color:#cee3d3}.flash.error{border-color:#efd0cb}.empty{padding:46px 20px!important}.check{color:#46534b}.check input{accent-color:#47735d}
 @media(max-width:800px){.content{padding:25px 16px 40px}.heading{margin-bottom:20px}.heading .primary,.heading .secondary{padding:10px 12px}.form-card{padding:22px}.table-panel{border-radius:7px}.table-panel td,.table-panel th{padding-left:15px;padding-right:15px}.filter{max-width:none}.filter select{max-width:45%}}
 @media(max-width:530px){.heading{display:block}.heading .primary,.heading .secondary{display:inline-flex;margin-top:13px}.form-card{padding:18px}.form-actions{flex-direction:column-reverse;align-items:stretch}.form-actions .primary,.form-actions .secondary{text-align:center;width:100%}.filter{flex-wrap:wrap;gap:8px}.filter input,.filter select,.filter button{border:1px solid #dce1db!important;border-radius:5px!important;min-width:0}.filter input{flex:1 1 100%}.filter select{flex:1}.filter button{flex:0 0 auto}.date{display:none}}
+
+/* Orçamentos: espaçamento das etapas e resumo sem textos sobrepostos. */
+.quote-editor .form-section+.form-section{margin-top:24px;padding-top:24px;border-top:1px solid #e7ece6}
+.quote-editor .form-section .items-head{border:0;margin:0 0 16px;padding:0;gap:12px}
+.quote-editor .pricing-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.quote-editor .pricing-grid label{min-width:0;line-height:1.35}
+.quote-editor .pricing-grid input{min-width:0}
+.quote-summary .margin-box{display:grid!important;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;row-gap:4px;align-items:center}
+.quote-summary .margin-box span{min-width:0;line-height:1.35}
+.quote-summary .margin-box b{display:block;margin:0;white-space:nowrap;line-height:1.1}
+.quote-summary .margin-box small{grid-column:1/-1;display:block;line-height:1.35}
+.attachments-panel .attachment-list .empty{padding:20px!important;margin:0;border:1px dashed #dce4da;border-radius:6px;background:#fafcf9;font-size:11px}
+.attachments-panel .attachment-list{display:block}
+.attachments-panel .attachment-upload{margin-bottom:16px}
+@media(max-width:1100px){.quote-editor .pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:800px){.quote-editor .pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:530px){.topbar-search{display:none}.quote-editor .pricing-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.quote-summary .margin-box{grid-column:1/-1}.attachments-panel,.proposal-link-panel{padding:18px}.attachment-actions{flex-wrap:wrap}}

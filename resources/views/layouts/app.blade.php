@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="{{ asset('css/quotes.css') }}?v={{ filemtime(public_path('css/quotes.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/notifications.css') }}">
     <link rel="stylesheet" href="{{ asset('css/users.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/system-polish.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/system-polish.css') }}?v={{ filemtime(public_path('css/system-polish.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/crm.css') }}">
 </head>
 <body>
