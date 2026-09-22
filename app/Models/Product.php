@@ -21,4 +21,39 @@ class Product extends Model
     {
         return $this->belongsToMany(Material::class, 'product_materials')->withPivot(['quantity', 'loss_percent'])->withTimestamps();
     }
+
+    public function machineOperations(): BelongsToMany
+    {
+        return $this->belongsToMany(Machine::class, 'product_machine_operations')
+            ->withPivot(['operation_name', 'minutes_per_unit', 'setup_minutes'])
+            ->withTimestamps();
+    }
+
+    public function calculatedProductionCost(): float
+    {
+        $this->loadMissing('materials', 'machineOperations');
+
+        if ($this->materials->isEmpty() && $this->machineOperations->isEmpty()) {
+            return (float) $this->production_cost;
+        }
+
+        $materialCost = $this->materials->sum(function (Material $material): float {
+            $quantity = (float) $material->pivot->quantity;
+            $loss = 1 + ((float) $material->pivot->loss_percent / 100);
+
+            return (float) $material->cost_per_unit * $quantity * $loss;
+        });
+        $machineCost = $this->machineOperations->sum(function (Machine $machine): float {
+            $minutes = (float) $machine->pivot->minutes_per_unit + (float) $machine->pivot->setup_minutes;
+
+            return $machine->calculatedHourlyCost() * ($minutes / 60);
+        });
+
+        return round($materialCost + $machineCost, 2);
+    }
+
+    public function refreshProductionCost(): void
+    {
+        $this->updateQuietly(['production_cost' => $this->calculatedProductionCost()]);
+    }
 }

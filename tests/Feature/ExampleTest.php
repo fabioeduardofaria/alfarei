@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\FinanceEntry;
 use App\Models\Lead;
 use App\Models\Machine;
+use App\Models\MachineMaintenance;
 use App\Models\Material;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -96,6 +97,27 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('quote_items', ['unit_cost' => 40, 'total_cost' => 80]);
     }
 
+    public function test_technical_sheet_calculates_machine_time_cost_for_quotes(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Custo', 'customer_group' => 'final']);
+        $material = Material::create(['code' => 'CUSTO-CHAPA', 'name' => 'Chapa custo', 'category' => 'MDF', 'unit' => 'un', 'cost_per_unit' => 20, 'stock_quantity' => 5, 'minimum_stock' => 1]);
+        $machine = Machine::create(['name' => 'Router custo', 'code' => 'ROUTER-CUSTO', 'type' => 'router', 'hourly_cost' => 0, 'labor_cost_hour' => 60, 'status' => 'available', 'active' => true]);
+        $product = Product::create(['name' => 'Peça calculada', 'type' => 'product', 'base_price' => 100, 'production_cost' => 0]);
+
+        $this->actingAs($user)->put("/produtos/{$product->id}/ficha-tecnica", [
+            'materials' => [['material_id' => $material->id, 'quantity' => 2, 'loss_percent' => 10]],
+            'operations' => [['machine_id' => $machine->id, 'operation_name' => 'Corte', 'minutes_per_unit' => 30, 'setup_minutes' => 0]],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'production_cost' => 74]);
+        $this->actingAs($user)->post('/orcamentos', [
+            'customer_id' => $customer->id, 'status' => 'draft', 'discount' => 0,
+            'items' => [['product_id' => $product->id, 'description' => 'Peça calculada', 'quantity' => 1, 'unit_price' => 100, 'unit_cost' => 0]],
+        ])->assertRedirect();
+        $this->assertDatabaseHas('quote_items', ['product_id' => $product->id, 'unit_cost' => 74]);
+    }
+
     public function test_approved_quote_converts_to_order_and_requires_deposit(): void
     {
         $user = User::factory()->create();
@@ -126,6 +148,23 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('production_events', ['production_order_id' => $production->id, 'type' => 'status', 'to_status' => 'preparation', 'minutes' => 35]);
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'in_production']);
         $this->assertDatabaseHas('customer_notifications', ['order_id' => $order->id, 'event' => 'production_started', 'status' => 'pending']);
+    }
+
+    public function test_production_user_can_schedule_and_complete_machine_maintenance(): void
+    {
+        $user = User::factory()->create(['role' => 'production', 'permissions' => ['production']]);
+        $machine = Machine::create(['name' => 'Laser manutenção', 'code' => 'LASER-MANUT', 'type' => 'laser_co2', 'hourly_cost' => 50, 'status' => 'available', 'active' => true]);
+
+        $this->actingAs($user)->post("/maquinas/{$machine->id}/manutencoes", [
+            'type' => 'preventive', 'scheduled_for' => '2026-10-15', 'cost' => 180.50,
+            'machine_hours' => 125, 'description' => 'Limpeza e alinhamento.',
+        ])->assertRedirect();
+
+        $maintenance = MachineMaintenance::firstOrFail();
+        $this->assertDatabaseHas('machines', ['id' => $machine->id, 'next_maintenance_at' => '2026-10-15 00:00:00']);
+        $this->actingAs($user)->post("/maquinas/{$machine->id}/manutencoes/{$maintenance->id}/concluir")->assertRedirect();
+        $this->assertDatabaseHas('machine_maintenances', ['id' => $maintenance->id, 'status' => 'completed', 'cost' => 180.50]);
+        $this->assertDatabaseHas('machines', ['id' => $machine->id, 'next_maintenance_at' => null]);
     }
 
     public function test_bom_material_is_reserved_then_consumed_when_cutting_starts(): void

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Machine;
+use App\Models\MachineMaintenance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -38,11 +39,51 @@ class MachineController extends Controller
         return redirect()->route('maquinas.index')->with('success', 'Máquina atualizada.');
     }
 
+    public function maintenances(Machine $maquina): View
+    {
+        return view('machines.maintenances', ['machine' => $maquina->load('maintenances')]);
+    }
+
+    public function storeMaintenance(Request $request, Machine $maquina): RedirectResponse
+    {
+        $maintenance = $maquina->maintenances()->create($this->maintenanceData($request));
+
+        $maquina->update(['next_maintenance_at' => $maintenance->scheduled_for]);
+
+        return back()->with('success', 'Manutenção agendada com sucesso.');
+    }
+
+    public function completeMaintenance(Machine $maquina, MachineMaintenance $maintenance): RedirectResponse
+    {
+        abort_unless($maintenance->machine_id === $maquina->id, 404);
+
+        $maintenance->update(['status' => 'completed', 'completed_at' => now()]);
+        $nextMaintenance = $maquina->maintenances()
+            ->where('status', 'scheduled')
+            ->whereNotNull('scheduled_for')
+            ->orderBy('scheduled_for')
+            ->value('scheduled_for');
+        $maquina->update(['next_maintenance_at' => $nextMaintenance]);
+
+        return back()->with('success', 'Manutenção concluída e custo registrado.');
+    }
+
     private function data(Request $request): array
     {
         $data = $request->validate(['name' => ['required', 'string', 'max:100'], 'code' => ['required', 'string', 'max:30'], 'type' => ['required', 'string', 'max:50'], 'acquisition_value' => ['nullable', 'numeric', 'min:0'], 'residual_value' => ['nullable', 'numeric', 'min:0'], 'useful_life_months' => ['nullable', 'integer', 'min:1'], 'planned_hours_month' => ['nullable', 'integer', 'min:1'], 'power_kw' => ['nullable', 'numeric', 'min:0'], 'energy_rate' => ['nullable', 'numeric', 'min:0'], 'labor_cost_hour' => ['nullable', 'numeric', 'min:0'], 'maintenance_cost_hour' => ['nullable', 'numeric', 'min:0'], 'consumables_cost_hour' => ['nullable', 'numeric', 'min:0'], 'status' => ['required', 'in:available,maintenance,unavailable']]);
         $data['active'] = $request->boolean('active');
 
         return $data;
+    }
+
+    private function maintenanceData(Request $request): array
+    {
+        return $request->validate([
+            'type' => ['required', 'in:preventive,corrective'],
+            'scheduled_for' => ['required', 'date'],
+            'cost' => ['nullable', 'numeric', 'min:0'],
+            'machine_hours' => ['nullable', 'integer', 'min:0'],
+            'description' => ['nullable', 'string', 'max:2000'],
+        ]);
     }
 }

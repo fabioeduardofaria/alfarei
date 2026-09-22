@@ -52,6 +52,9 @@ Route::middleware('auth')->group(function () {
     Route::post('crm/{lead}/converter-cliente', [LeadController::class, 'convertToCustomer'])->middleware('access:crm')->name('crm.convert-customer');
     Route::resource('materiais', MaterialController::class)->except('show', 'destroy')->middleware('access:materials');
     Route::resource('maquinas', MachineController::class)->except('show', 'destroy')->middleware('access:production');
+    Route::get('maquinas/{maquina}/manutencoes', [MachineController::class, 'maintenances'])->middleware('access:production')->name('maquinas.maintenances');
+    Route::post('maquinas/{maquina}/manutencoes', [MachineController::class, 'storeMaintenance'])->middleware('access:production')->name('maquinas.maintenances.store');
+    Route::post('maquinas/{maquina}/manutencoes/{maintenance}/concluir', [MachineController::class, 'completeMaintenance'])->middleware('access:production')->name('maquinas.maintenances.complete');
     Route::resource('fornecedores', SupplierController::class)->except('show', 'destroy')->middleware('access:suppliers');
     Route::get('compras', [PurchaseOrderController::class, 'index'])->middleware('access:purchases')->name('compras.index');
     Route::get('compras/nova', [PurchaseOrderController::class, 'create'])->middleware('access:purchases')->name('compras.create');
