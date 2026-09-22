@@ -49,18 +49,21 @@
             <div class="section-intro"><div><span>4</span><h2>Fotos da loja</h2></div><p>Envie ou remova fotos sem precisar salvar os outros campos do produto.</p></div>
             <form method="POST" enctype="multipart/form-data" action="{{ route('produtos.images.store', $product) }}">
                 @csrf
-                <div class="form-grid">
-                    <label class="image-upload-field">Trocar foto principal<input type="file" name="image" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG ou WebP, até 5 MB.</small></label>
-                    <label class="gallery-dropzone">Adicionar fotos à galeria <small>(até 8)</small><input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" multiple><span>Selecione várias imagens de uma só vez</span></label>
+                <div class="form-grid photo-upload-grid">
+                    <label class="image-upload-field photo-upload">Trocar foto principal<input type="file" name="image" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG ou WebP, até 5 MB.</small></label>
+                    <label class="gallery-dropzone photo-upload">Adicionar fotos à galeria <small>(até 8)</small><input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" multiple><span>Selecione várias imagens de uma só vez</span></label>
                 </div>
                 <div class="form-actions"><button class="primary" type="submit">Enviar fotos →</button></div>
             </form>
-            @if($product->image_url)<div class="product-image-preview"><img src="{{ $product->image_url }}" alt="Foto principal atual de {{ $product->name }}"><span>Foto principal atual</span></div>@endif
-            @if($product->images->isNotEmpty())
-                <div class="product-gallery-manager">
-                    @foreach($product->images as $image)
-                        <div class="gallery-card"><img src="{{ $image->path }}" alt="Foto de {{ $product->name }}"><form method="POST" action="{{ route('produtos.images.destroy', [$product, $image]) }}">@csrf @method('DELETE')<button type="submit" class="remove-gallery-image" aria-label="Remover foto">×</button></form></div>
-                    @endforeach
+            @if($product->image_url || $product->images->isNotEmpty())
+                <div class="photo-library">
+                    <div><b>Fotos cadastradas</b><small>A primeira imagem é a capa exibida na loja.</small></div>
+                    <div class="product-gallery-manager">
+                        @if($product->image_url)<div class="gallery-card main-gallery-card"><img src="{{ $product->image_url }}" alt="Foto principal de {{ $product->name }}"><span>Principal</span></div>@endif
+                        @foreach($product->images as $image)
+                            <div class="gallery-card"><img src="{{ $image->path }}" alt="Foto de {{ $product->name }}"><form method="POST" action="{{ route('produtos.images.destroy', [$product, $image]) }}">@csrf @method('DELETE')<button type="submit" class="remove-gallery-image" aria-label="Remover foto">×</button></form></div>
+                        @endforeach
+                    </div>
                 </div>
             @endif
         </section>
