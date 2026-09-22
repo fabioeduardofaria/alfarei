@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\MachineController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
@@ -50,6 +51,7 @@ Route::middleware('auth')->group(function () {
     Route::post('crm/{lead}/atividades', [LeadController::class, 'addActivity'])->middleware('access:crm')->name('crm.activities.store');
     Route::post('crm/{lead}/converter-cliente', [LeadController::class, 'convertToCustomer'])->middleware('access:crm')->name('crm.convert-customer');
     Route::resource('materiais', MaterialController::class)->except('show', 'destroy')->middleware('access:materials');
+    Route::resource('maquinas', MachineController::class)->except('show', 'destroy')->middleware('access:production');
     Route::resource('fornecedores', SupplierController::class)->except('show', 'destroy')->middleware('access:suppliers');
     Route::get('compras', [PurchaseOrderController::class, 'index'])->middleware('access:purchases')->name('compras.index');
     Route::get('compras/nova', [PurchaseOrderController::class, 'create'])->middleware('access:purchases')->name('compras.create');
