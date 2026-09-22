@@ -59,6 +59,25 @@ class ProductController extends Controller
         return back()->with('success', 'Foto removida da galeria.');
     }
 
+    public function storeImages(Request $request, Product $produto): RedirectResponse
+    {
+        $request->validate([
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'images' => ['nullable', 'array', 'max:8'],
+            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        if ($request->hasFile('image')) {
+            if (Str::startsWith((string) $produto->image_url, '/storage/')) {
+                Storage::disk('public')->delete(Str::after($produto->image_url, '/storage/'));
+            }
+            $produto->update(['image_url' => Storage::url($request->file('image')->store('products', 'public'))]);
+        }
+        $this->storeGallery($request, $produto);
+
+        return back()->with('success', 'Fotos atualizadas com sucesso.');
+    }
+
     private function validated(Request $request, ?Product $product = null): array
     {
         $skuRule = 'unique:products,sku'.($product ? ','.$product->id : '');
@@ -77,7 +96,7 @@ class ProductController extends Controller
             'images' => ['nullable', 'array', 'max:8'], 'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         if ($request->hasFile('image')) {
-            if ($product && Str::startsWith($product->image_url, '/storage/')) {
+            if ($product && Str::startsWith((string) $product->image_url, '/storage/')) {
                 Storage::disk('public')->delete(Str::after($product->image_url, '/storage/'));
             }
             $data['image_url'] = Storage::url($request->file('image')->store('products', 'public'));

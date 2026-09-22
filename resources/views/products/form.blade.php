@@ -31,23 +31,7 @@
         </section>
 
         <section class="form-section">
-            <div class="section-intro"><div><span>3</span><h2>Fotos da loja</h2></div><p>Uma boa foto torna o produto mais fácil de escolher no e-commerce.</p></div>
-            <div class="form-grid">
-                <label class="span-2 image-upload-field">Foto principal<input type="file" name="image" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG ou WebP, até 5 MB.</small>@error('image')<small class="field-error">{{ $message }}</small>@enderror</label>
-                @if($product->image_url)<div class="product-image-preview span-2"><img src="{{ $product->image_url }}" alt="Foto principal atual de {{ $product->name }}"><span>Foto principal atual</span></div>@endif
-                <label class="span-2 gallery-dropzone">Adicionar fotos à galeria <small>(opcional, até 8)</small><input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" multiple><span>Selecione várias imagens de uma só vez</span></label>
-                @if($product->exists && $product->images->isNotEmpty())
-                    <div class="product-gallery-manager span-2">
-                        @foreach($product->images as $image)
-                            <div class="gallery-card"><img src="{{ $image->path }}" alt="Foto de {{ $product->name }}"><form method="POST" action="{{ route('produtos.images.destroy', [$product, $image]) }}">@csrf @method('DELETE')<button type="submit" class="remove-gallery-image" aria-label="Remover foto">×</button></form></div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-        </section>
-
-        <section class="form-section">
-            <div class="section-intro"><div><span>4</span><h2>Disponibilidade</h2></div><p>Escolha como este item será tratado pela operação e pela loja.</p></div>
+            <div class="section-intro"><div><span>3</span><h2>Disponibilidade</h2></div><p>Escolha como este item será tratado pela operação e pela loja.</p></div>
             <div class="product-switches">
                 <label class="option-card"><input type="hidden" name="made_to_order" value="0"><input type="checkbox" name="made_to_order" value="1" @checked(old('made_to_order', $product->exists ? $product->made_to_order : true))><span><b>Produzido sob encomenda</b><small>Cria produção quando o pedido for liberado.</small></span></label>
                 <label class="option-card"><input type="hidden" name="store_visible" value="0"><input type="checkbox" name="store_visible" value="1" @checked(old('store_visible', $product->store_visible))><span><b>Mostrar na loja virtual</b><small>Permite que clientes encontrem este item no catálogo.</small></span></label>
@@ -59,4 +43,28 @@
         <details class="product-advanced"><summary>Opções avançadas</summary><div class="form-grid"><label class="span-2">URL externa da imagem <small>(use somente se a foto estiver hospedada em outro site)</small><input type="text" name="image_url" value="{{ old('image_url', $product->image_url) }}" placeholder="https://..."></label><label>URL amigável da loja <small>(opcional)</small><input name="store_slug" value="{{ old('store_slug', $product->store_slug) }}" placeholder="placa-decorativa-personalizada"></label></div></details>
         <div class="form-actions"><a class="secondary" href="{{ route('produtos.index') }}">Cancelar</a><button class="primary" type="submit">{{ $product->exists ? 'Salvar alterações' : 'Salvar produto e continuar' }} →</button></div>
     </form>
+
+    @if($product->exists)
+        <section class="panel product-photo-panel">
+            <div class="section-intro"><div><span>4</span><h2>Fotos da loja</h2></div><p>Envie ou remova fotos sem precisar salvar os outros campos do produto.</p></div>
+            <form method="POST" enctype="multipart/form-data" action="{{ route('produtos.images.store', $product) }}">
+                @csrf
+                <div class="form-grid">
+                    <label class="image-upload-field">Trocar foto principal<input type="file" name="image" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG ou WebP, até 5 MB.</small></label>
+                    <label class="gallery-dropzone">Adicionar fotos à galeria <small>(até 8)</small><input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" multiple><span>Selecione várias imagens de uma só vez</span></label>
+                </div>
+                <div class="form-actions"><button class="primary" type="submit">Enviar fotos →</button></div>
+            </form>
+            @if($product->image_url)<div class="product-image-preview"><img src="{{ $product->image_url }}" alt="Foto principal atual de {{ $product->name }}"><span>Foto principal atual</span></div>@endif
+            @if($product->images->isNotEmpty())
+                <div class="product-gallery-manager">
+                    @foreach($product->images as $image)
+                        <div class="gallery-card"><img src="{{ $image->path }}" alt="Foto de {{ $product->name }}"><form method="POST" action="{{ route('produtos.images.destroy', [$product, $image]) }}">@csrf @method('DELETE')<button type="submit" class="remove-gallery-image" aria-label="Remover foto">×</button></form></div>
+                    @endforeach
+                </div>
+            @endif
+        </section>
+    @else
+        <section class="panel product-photo-panel photo-after-save"><b>Fotos vêm em seguida</b><p>Salve primeiro as informações básicas do produto. Na próxima tela, você poderá enviar e remover imagens sem salvar o cadastro inteiro novamente.</p></section>
+    @endif
 @endsection

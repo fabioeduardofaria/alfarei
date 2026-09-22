@@ -95,10 +95,9 @@ class ExampleTest extends TestCase
         $user = User::factory()->create();
         $product = Product::create(['name' => 'Galeria de produto', 'type' => 'product', 'base_price' => 100, 'production_cost' => 40]);
 
-        $this->actingAs($user)->put("/produtos/{$product->id}", [
-            'name' => $product->name, 'type' => 'product', 'base_price' => 100, 'production_cost' => 40,
+        $this->actingAs($user)->post("/produtos/{$product->id}/fotos", [
             'images' => [UploadedFile::fake()->image('detalhe-1.jpg'), UploadedFile::fake()->image('detalhe-2.png')],
-        ])->assertRedirect('/produtos');
+        ])->assertRedirect();
 
         $image = $product->images()->firstOrFail();
         $this->assertDatabaseCount('product_images', 2);
