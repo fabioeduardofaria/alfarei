@@ -30,10 +30,10 @@
                 <label>Horímetro da máquina
                     <input type="number" min="0" name="machine_hours" value="{{ old('machine_hours', 0) }}">
                 </label>
+                <label class="span-2">Serviço / observações
+                    <textarea name="description" rows="3" placeholder="Ex.: limpeza de lentes, alinhamento, troca de correia.">{{ old('description') }}</textarea>
+                </label>
             </div>
-            <label>Serviço / observações
-                <textarea name="description" rows="3" placeholder="Ex.: limpeza de lentes, alinhamento, troca de correia.">{{ old('description') }}</textarea>
-            </label>
         </div>
         <div class="form-actions"><button class="primary">Agendar manutenção</button></div>
     </form>
