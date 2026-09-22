@@ -10,6 +10,7 @@ use App\Models\MachineMaintenance;
 use App\Models\Material;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\Quote;
@@ -364,7 +365,7 @@ class ExampleTest extends TestCase
         $supplier = Supplier::create(['name' => 'Fornecedor teste', 'active' => true]);
         $material = Material::create(['code' => 'COMPRA-TESTE', 'name' => 'Material compra', 'category' => 'Insumo', 'unit' => 'un', 'cost_per_unit' => 10, 'stock_quantity' => 1, 'minimum_stock' => 2]);
 
-        $this->actingAs($user)->post('/compras', ['supplier_id' => $supplier->id, 'status' => 'ordered', 'expected_at' => '2026-10-01', 'items' => [['material_id' => $material->id, 'quantity' => 4, 'unit_cost' => 12.5]]])->assertRedirect();
+        $this->actingAs($user)->post('/compras', ['supplier_id' => $supplier->id, 'status' => 'ordered', 'expected_at' => '2026-10-01', 'payment_due_at' => '2026-10-20', 'items' => [['material_id' => $material->id, 'quantity' => 4, 'unit_cost' => 12.5]]])->assertRedirect();
 
         $purchase = PurchaseOrder::firstOrFail();
         $this->actingAs($user)->post("/compras/{$purchase->id}/receber")->assertRedirect();
@@ -374,6 +375,25 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('inventory_movements', ['material_id' => $material->id, 'type' => 'purchase', 'status' => 'posted', 'quantity' => 4]);
         $this->assertDatabaseCount('inventory_movements', 1);
         $this->assertDatabaseHas('finance_entries', ['type' => 'payable', 'source_type' => 'purchase', 'source_id' => $purchase->id, 'amount' => 50, 'status' => 'pending']);
+        $this->assertSame('2026-10-20', FinanceEntry::where('source_type', 'purchase')->firstOrFail()->due_date->format('Y-m-d'));
+    }
+
+    public function test_draft_purchase_creates_payable_only_when_confirmed(): void
+    {
+        $user = User::factory()->create();
+        $supplier = Supplier::create(['name' => 'Fornecedor do rascunho', 'active' => true]);
+        $material = Material::create(['code' => 'COMPRA-RASC', 'name' => 'Material rascunho', 'category' => 'Insumo', 'unit' => 'un', 'cost_per_unit' => 10, 'stock_quantity' => 0, 'minimum_stock' => 1]);
+        $this->actingAs($user)->post('/compras', [
+            'supplier_id' => $supplier->id, 'status' => 'draft', 'payment_due_at' => '2026-11-15',
+            'items' => [['material_id' => $material->id, 'quantity' => 2, 'unit_cost' => 10]],
+        ])->assertRedirect();
+        $purchase = PurchaseOrder::firstOrFail();
+        $this->assertDatabaseCount('finance_entries', 0);
+        $this->post("/compras/{$purchase->id}/receber")->assertStatus(409);
+        $this->post("/compras/{$purchase->id}/confirmar")->assertRedirect();
+        $this->assertDatabaseHas('finance_entries', ['source_type' => 'purchase', 'source_id' => $purchase->id, 'amount' => 20]);
+        $this->post("/compras/{$purchase->id}/confirmar")->assertStatus(409);
+        $this->assertDatabaseCount('finance_entries', 1);
     }
 
     public function test_finance_entry_can_be_settled(): void
@@ -386,9 +406,66 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('finance_entries', ['id' => $entry->id, 'status' => 'paid', 'payment_method' => 'pix']);
     }
 
+    public function test_manual_payable_installments_and_partial_payments_keep_correct_balance(): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->create();
+        $supplier = Supplier::create(['name' => 'Locador da oficina', 'active' => true]);
+        $this->actingAs($user)->get('/financeiro/criar')->assertOk()->assertSee('Nova conta');
+        $this->actingAs($user)->post('/financeiro', [
+            'type' => 'payable', 'description' => 'Aluguel da oficina', 'category' => 'Aluguel',
+            'supplier_id' => $supplier->id, 'amount' => '100.01', 'due_date' => '2026-01-31',
+            'installments' => 3, 'document_number' => 'CONT-42',
+        ])->assertRedirect();
+
+        $entries = FinanceEntry::where('source_type', 'manual')->orderBy('installment_number')->get();
+        $this->assertCount(3, $entries);
+        $this->assertSame(['33.33', '33.33', '33.35'], $entries->pluck('amount')->all());
+        $this->assertSame(['2026-01-31', '2026-02-28', '2026-03-31'], $entries->map(fn ($entry) => $entry->due_date->format('Y-m-d'))->all());
+        $first = $entries->first();
+        $this->get("/financeiro/{$first->id}")->assertOk()->assertSee('Parcelas desta conta');
+
+        $this->post("/financeiro/{$first->id}/baixar", [
+            'amount' => '10.00', 'paid_at' => '2026-02-01', 'payment_method' => 'pix',
+            'receipt' => UploadedFile::fake()->image('comprovante.png'),
+        ])->assertRedirect();
+        $this->assertDatabaseHas('finance_entries', ['id' => $first->id, 'status' => 'partial', 'paid_amount' => '10.00']);
+        $this->assertEqualsWithDelta(23.33, $first->fresh()->remaining_amount, 0.001);
+        $payment = $first->payments()->firstOrFail();
+        Storage::disk('local')->assertExists($payment->receipt_path);
+        $this->get("/financeiro/{$first->id}/pagamentos/{$payment->id}/comprovante")->assertOk();
+        $restricted = User::factory()->create(['role' => 'commercial', 'permissions' => ['dashboard']]);
+        $this->actingAs($restricted)->get("/financeiro/{$first->id}/pagamentos/{$payment->id}/comprovante")->assertForbidden();
+        $this->actingAs($user);
+        $this->post("/financeiro/{$first->id}/baixar", ['amount' => '23.34'])->assertSessionHasErrors('amount');
+        $this->post("/financeiro/{$first->id}/baixar", ['amount' => '23.33', 'payment_method' => 'transfer'])->assertRedirect();
+        $this->assertDatabaseHas('finance_entries', ['id' => $first->id, 'status' => 'paid', 'paid_amount' => '33.33']);
+        $this->assertDatabaseCount('finance_payments', 2);
+        $this->get('/financeiro')->assertOk()->assertViewHas('pendingPayable', fn ($value) => abs($value - 66.68) < 0.001)
+            ->assertViewHas('paidOut', fn ($value) => abs($value - 33.33) < 0.001);
+    }
+
+    public function test_manual_account_can_be_edited_or_cancelled_only_before_payment(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->post('/financeiro', [
+            'type' => 'receivable', 'description' => 'Serviço avulso', 'category' => 'Serviços',
+            'amount' => '80.00', 'due_date' => '2026-10-10', 'installments' => 1,
+        ])->assertRedirect();
+        $entry = FinanceEntry::where('source_type', 'manual')->firstOrFail();
+        $this->put("/financeiro/{$entry->id}", [
+            'type' => 'receivable', 'description' => 'Serviço corrigido', 'category' => 'Serviços',
+            'amount' => '90.00', 'due_date' => '2026-10-11',
+        ])->assertRedirect();
+        $this->assertSame('Serviço corrigido', $entry->fresh()->description);
+        $this->post("/financeiro/{$entry->id}/cancelar")->assertRedirect();
+        $this->assertSame('cancelled', $entry->fresh()->status);
+        $this->post("/financeiro/{$entry->id}/baixar", ['amount' => 10])->assertSessionHasErrors('amount');
+    }
+
     public function test_store_checkout_creates_order_and_financial_entries(): void
     {
-        User::factory()->create(['active' => true]);
+        $user = User::factory()->create(['active' => true]);
         $product = Product::create(['name' => 'Peça da loja', 'type' => 'product', 'base_price' => 150, 'production_cost' => 60, 'made_to_order' => true, 'active' => true, 'store_visible' => true, 'allow_personalization' => true]);
         $this->assertTrue($product->fresh()->store_visible);
         $this->get("/loja/produto/{$product->id}")->assertOk()->assertSee('Peça da loja');
@@ -403,6 +480,33 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('order_items', ['description' => 'Peça da loja · Personalização: Nome da cliente', 'quantity' => 2]);
         $this->assertDatabaseCount('finance_entries', 2);
         $this->assertDatabaseHas('customer_notifications', ['event' => 'order_created', 'status' => 'pending', 'recipient' => '65999990000']);
+        $deposit = FinanceEntry::where('source_type', 'payment')->firstOrFail();
+        $this->actingAs($user)->post("/financeiro/{$deposit->id}/baixar", ['amount' => 150, 'payment_method' => 'pix'])->assertRedirect();
+        $this->assertDatabaseHas('orders', ['status' => 'awaiting_art']);
+        $this->assertNotNull(Order::firstOrFail()->deposit_paid_at);
+        $this->assertDatabaseHas('payments', ['id' => $deposit->source_id, 'status' => 'paid']);
+    }
+
+    public function test_confirming_deposit_from_order_records_financial_payment_once(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente da entrada', 'customer_group' => 'final']);
+        $order = Order::create([
+            'number' => 'PED-ENTRADA-TESTE', 'customer_id' => $customer->id, 'created_by' => $user->id,
+            'status' => 'awaiting_deposit', 'source' => 'ecommerce', 'total' => 100, 'cost_total' => 40, 'deposit_amount' => 50,
+        ]);
+        $payment = Payment::create(['order_id' => $order->id, 'type' => 'deposit', 'status' => 'pending', 'amount' => 50]);
+        $entry = FinanceEntry::create([
+            'type' => 'receivable', 'source_type' => 'payment', 'source_id' => $payment->id,
+            'description' => 'Entrada do pedido', 'amount' => 50, 'status' => 'pending',
+        ]);
+
+        $this->actingAs($user)->post("/pedidos/{$order->id}/confirmar-entrada")->assertRedirect();
+        $this->post("/pedidos/{$order->id}/confirmar-entrada")->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'ready_for_production']);
+        $this->assertDatabaseHas('finance_entries', ['id' => $entry->id, 'status' => 'paid', 'paid_amount' => 50]);
+        $this->assertDatabaseHas('finance_payments', ['finance_entry_id' => $entry->id, 'amount' => 50]);
+        $this->assertDatabaseCount('finance_payments', 1);
     }
 
     public function test_store_tracking_requires_matching_order_number_and_customer_email(): void

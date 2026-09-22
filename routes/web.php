@@ -64,9 +64,17 @@ Route::middleware('auth')->group(function () {
     Route::get('compras/nova', [PurchaseOrderController::class, 'create'])->middleware('access:purchases')->name('compras.create');
     Route::post('compras', [PurchaseOrderController::class, 'store'])->middleware('access:purchases')->name('compras.store');
     Route::get('compras/{compra}', [PurchaseOrderController::class, 'show'])->middleware('access:purchases')->name('compras.show');
+    Route::post('compras/{compra}/confirmar', [PurchaseOrderController::class, 'confirm'])->middleware('access:purchases')->name('compras.confirm');
     Route::post('compras/{compra}/receber', [PurchaseOrderController::class, 'receive'])->middleware('access:purchases')->name('compras.receive');
     Route::get('financeiro', [FinanceController::class, 'index'])->middleware('access:finance')->name('financeiro.index');
+    Route::get('financeiro/criar', [FinanceController::class, 'create'])->middleware('access:finance')->name('financeiro.create');
+    Route::post('financeiro', [FinanceController::class, 'store'])->middleware('access:finance')->name('financeiro.store');
+    Route::get('financeiro/{lancamento}', [FinanceController::class, 'show'])->middleware('access:finance')->name('financeiro.show');
+    Route::get('financeiro/{lancamento}/editar', [FinanceController::class, 'edit'])->middleware('access:finance')->name('financeiro.edit');
+    Route::put('financeiro/{lancamento}', [FinanceController::class, 'update'])->middleware('access:finance')->name('financeiro.update');
     Route::post('financeiro/{lancamento}/baixar', [FinanceController::class, 'settle'])->middleware('access:finance')->name('financeiro.settle');
+    Route::get('financeiro/{lancamento}/pagamentos/{payment}/comprovante', [FinanceController::class, 'receipt'])->middleware('access:finance')->name('financeiro.receipt');
+    Route::post('financeiro/{lancamento}/cancelar', [FinanceController::class, 'cancel'])->middleware('access:finance')->name('financeiro.cancel');
     Route::resource('produtos', ProductController::class)->except('show', 'destroy')->middleware('access:products');
     Route::post('produtos/{produto}/fotos', [ProductController::class, 'storeImages'])->middleware('access:products')->name('produtos.images.store');
     Route::delete('produtos/{produto}/foto-principal', [ProductController::class, 'destroyMainImage'])->middleware('access:products')->name('produtos.main-image.destroy');

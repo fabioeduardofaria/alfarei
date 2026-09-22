@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ asset('css/system-polish.css') }}?v={{ filemtime(public_path('css/system-polish.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/crm.css') }}">
     <link rel="stylesheet" href="{{ asset('css/brand.css') }}?v={{ filemtime(public_path('css/brand.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/finance.css') }}?v={{ filemtime(public_path('css/finance.css')) }}">
 </head>
 <body>
 <div class="shell">
