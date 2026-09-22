@@ -154,6 +154,21 @@ class ExampleTest extends TestCase
         $this->assertDatabaseHas('quote_items', ['unit_cost' => 40, 'total_cost' => 80]);
     }
 
+    public function test_customer_can_approve_a_quote_from_a_secure_public_link_and_download_pdf(): void
+    {
+        $user = User::factory()->create();
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Proposta', 'email' => 'proposta@cliente.test', 'customer_group' => 'final']);
+        $quote = Quote::create(['number' => 'ORC-2026-PUBLICA', 'customer_id' => $customer->id, 'created_by' => $user->id, 'version' => 1, 'status' => 'sent', 'valid_until' => today()->addDays(7), 'deposit_percent' => 50, 'production_lead_days' => 5, 'payment_terms' => '50% de entrada.', 'approval_token' => 'token-publico-seguro', 'subtotal' => 200, 'cost_total' => 80, 'total' => 200]);
+        QuoteItem::create(['quote_id' => $quote->id, 'description' => 'Peça personalizada', 'type' => 'custom', 'quantity' => 1, 'unit_price' => 200, 'unit_cost' => 80, 'total' => 200, 'total_cost' => 80]);
+
+        $this->get('/proposta/token-publico-seguro')->assertOk()->assertSee('Proposta comercial')->assertSee('Peça personalizada');
+        $this->get('/proposta/token-publico-seguro/pdf')->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->post('/proposta/token-publico-seguro/resposta', ['decision' => 'approved', 'response' => 'Podem seguir com a produção.'])->assertRedirect('/proposta/token-publico-seguro');
+
+        $this->assertDatabaseHas('quotes', ['id' => $quote->id, 'status' => 'approved', 'customer_response' => 'Podem seguir com a produção.']);
+        $this->assertNotNull($quote->fresh()->approved_at);
+    }
+
     public function test_technical_sheet_calculates_machine_time_cost_for_quotes(): void
     {
         $user = User::factory()->create();

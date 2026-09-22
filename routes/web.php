@@ -14,6 +14,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\QuoteApprovalController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreSettingsController;
@@ -32,6 +33,9 @@ Route::post('loja/finalizar', [StoreController::class, 'placeOrder'])->name('loj
 Route::get('loja/pedido/{number}/sucesso', [StoreController::class, 'success'])->name('loja.success');
 Route::get('loja/rastrear', [StoreController::class, 'trackingForm'])->name('loja.tracking');
 Route::post('loja/rastrear', [StoreController::class, 'tracking'])->name('loja.tracking.search');
+Route::get('proposta/{token}', [QuoteApprovalController::class, 'show'])->name('proposta.public');
+Route::post('proposta/{token}/resposta', [QuoteApprovalController::class, 'respond'])->name('proposta.respond');
+Route::get('proposta/{token}/pdf', [QuoteApprovalController::class, 'pdf'])->name('proposta.pdf');
 
 Route::middleware('guest')->group(function () {
     Route::get('/entrar', [AuthController::class, 'create'])->name('login');
