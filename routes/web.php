@@ -64,6 +64,7 @@ Route::middleware('auth')->group(function () {
     Route::get('financeiro', [FinanceController::class, 'index'])->middleware('access:finance')->name('financeiro.index');
     Route::post('financeiro/{lancamento}/baixar', [FinanceController::class, 'settle'])->middleware('access:finance')->name('financeiro.settle');
     Route::resource('produtos', ProductController::class)->except('show', 'destroy')->middleware('access:products');
+    Route::delete('produtos/{produto}/fotos/{foto}', [ProductController::class, 'destroyImage'])->middleware('access:products')->name('produtos.images.destroy');
     Route::get('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'edit'])->middleware('access:products')->name('produtos.technical-sheet.edit');
     Route::put('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'update'])->middleware('access:products')->name('produtos.technical-sheet.update');
     Route::resource('orcamentos', QuoteController::class)->except('show', 'destroy')->middleware('access:quotes');

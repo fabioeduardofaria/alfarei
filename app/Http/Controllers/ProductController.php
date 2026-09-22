@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -28,7 +29,8 @@ class ProductController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Product::create($this->validated($request));
+        $product = Product::create($this->validated($request));
+        $this->storeGallery($request, $product);
 
         return redirect()->route('produtos.index')->with('success', 'Produto cadastrado com sucesso.');
     }
@@ -41,8 +43,20 @@ class ProductController extends Controller
     public function update(Request $request, Product $produto): RedirectResponse
     {
         $produto->update($this->validated($request, $produto));
+        $this->storeGallery($request, $produto);
 
         return redirect()->route('produtos.index')->with('success', 'Produto atualizado com sucesso.');
+    }
+
+    public function destroyImage(Product $produto, ProductImage $foto): RedirectResponse
+    {
+        abort_unless($foto->product_id === $produto->id, 404);
+        if (Str::startsWith($foto->path, '/storage/')) {
+            Storage::disk('public')->delete(Str::after($foto->path, '/storage/'));
+        }
+        $foto->delete();
+
+        return back()->with('success', 'Foto removida da galeria.');
     }
 
     private function validated(Request $request, ?Product $product = null): array
@@ -53,8 +67,14 @@ class ProductController extends Controller
             'type' => ['required', 'in:product,service'], 'base_price' => ['required', 'numeric', 'min:0'],
             'production_cost' => ['required', 'numeric', 'min:0'], 'made_to_order' => ['boolean'],
             'active' => ['boolean'], 'description' => ['nullable', 'string', 'max:3000'], 'store_visible' => ['boolean'],
-            'store_slug' => ['nullable', 'string', 'max:180', 'unique:products,store_slug'.($product ? ','.$product->id : '')], 'image_url' => ['nullable', 'url', 'max:1000'],
+            'store_slug' => ['nullable', 'string', 'max:180', 'unique:products,store_slug'.($product ? ','.$product->id : '')],
+            'image_url' => ['nullable', 'string', 'max:1000', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! Str::startsWith($value, '/storage/') && filter_var($value, FILTER_VALIDATE_URL) === false) {
+                    $fail('Informe uma URL válida para a imagem.');
+                }
+            }],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'], 'allow_personalization' => ['boolean'],
+            'images' => ['nullable', 'array', 'max:8'], 'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         if ($request->hasFile('image')) {
             if ($product && Str::startsWith($product->image_url, '/storage/')) {
@@ -62,8 +82,19 @@ class ProductController extends Controller
             }
             $data['image_url'] = Storage::url($request->file('image')->store('products', 'public'));
         }
-        unset($data['image']);
+        unset($data['image'], $data['images']);
 
         return $data;
+    }
+
+    private function storeGallery(Request $request, Product $product): void
+    {
+        $nextOrder = ((int) $product->images()->max('sort_order')) + 1;
+        foreach ($request->file('images', []) as $image) {
+            $product->images()->create([
+                'path' => Storage::url($image->store('products', 'public')),
+                'sort_order' => $nextOrder++,
+            ]);
+        }
     }
 }

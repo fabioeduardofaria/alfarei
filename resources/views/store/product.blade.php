@@ -2,9 +2,18 @@
 
 @section('content')
 <section class="product-page">
-    <div class="product-hero" @if($product->image_url) style="background-image:url('{{ $product->image_url }}')" @endif>
-        <span>{{ $product->made_to_order ? 'Produzido sob encomenda' : 'Pronta entrega' }}</span>
-        @unless($product->image_url)<b>{{ strtoupper(substr($product->name, 0, 1)) }}</b>@endunless
+    <div class="product-gallery">
+        <div class="product-hero" id="mainProductImage" @if($images->isNotEmpty()) style="background-image:url('{{ $images->first() }}')" @endif>
+            <span>{{ $product->made_to_order ? 'Produzido sob encomenda' : 'Pronta entrega' }}</span>
+            @if($images->isEmpty())<b>{{ strtoupper(substr($product->name, 0, 1)) }}</b>@endif
+        </div>
+        @if($images->count() > 1)
+            <div class="product-thumbnails">
+                @foreach($images as $image)
+                    <button type="button" class="{{ $loop->first ? 'active' : '' }}" data-image="{{ $image }}"><img src="{{ $image }}" alt="Foto {{ $loop->iteration }} de {{ $product->name }}"></button>
+                @endforeach
+            </div>
+        @endif
     </div>
     <div class="product-info">
         <a class="back-store" href="{{ route('loja.index') }}">← Voltar à loja</a>
@@ -23,4 +32,7 @@
         <small class="delivery-note">{{ $settings->delivery_message }}</small>
     </div>
 </section>
+@if($images->count() > 1)
+<script>document.querySelectorAll('.product-thumbnails button').forEach(button=>button.addEventListener('click',()=>{document.getElementById('mainProductImage').style.backgroundImage=`url("${button.dataset.image}")`;document.querySelectorAll('.product-thumbnails button').forEach(item=>item.classList.toggle('active',item===button));}));</script>
+@endif
 @endsection

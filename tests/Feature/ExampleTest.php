@@ -83,6 +83,27 @@ class ExampleTest extends TestCase
         $product = Product::where('name', 'Produto com foto')->firstOrFail();
         $this->assertStringStartsWith('/storage/products/', $product->image_url);
         Storage::disk('public')->assertExists(Str::after($product->image_url, '/storage/'));
+        $this->actingAs($user)->put("/produtos/{$product->id}", [
+            'name' => $product->name, 'type' => 'product', 'base_price' => 100, 'production_cost' => 40,
+            'image_url' => $product->image_url,
+        ])->assertRedirect('/produtos');
+    }
+
+    public function test_product_can_receive_and_remove_gallery_photos(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create();
+        $product = Product::create(['name' => 'Galeria de produto', 'type' => 'product', 'base_price' => 100, 'production_cost' => 40]);
+
+        $this->actingAs($user)->put("/produtos/{$product->id}", [
+            'name' => $product->name, 'type' => 'product', 'base_price' => 100, 'production_cost' => 40,
+            'images' => [UploadedFile::fake()->image('detalhe-1.jpg'), UploadedFile::fake()->image('detalhe-2.png')],
+        ])->assertRedirect('/produtos');
+
+        $image = $product->images()->firstOrFail();
+        $this->assertDatabaseCount('product_images', 2);
+        $this->actingAs($user)->delete("/produtos/{$product->id}/fotos/{$image->id}")->assertRedirect();
+        $this->assertDatabaseCount('product_images', 1);
     }
 
     public function test_commercial_user_can_create_lead_and_register_activity(): void
