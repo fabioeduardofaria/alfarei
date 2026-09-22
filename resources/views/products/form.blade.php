@@ -59,7 +59,7 @@
                 <div class="photo-library">
                     <div><b>Fotos cadastradas</b><small>A primeira imagem é a capa exibida na loja.</small></div>
                     <div class="product-gallery-manager">
-                        @if($product->image_url)<div class="gallery-card main-gallery-card"><img src="{{ $product->image_url }}" alt="Foto principal de {{ $product->name }}"><span>Principal</span></div>@endif
+                        @if($product->image_url)<div class="gallery-card main-gallery-card"><img src="{{ $product->image_url }}" alt="Foto principal de {{ $product->name }}"><span>Principal</span><form method="POST" action="{{ route('produtos.main-image.destroy', $product) }}">@csrf @method('DELETE')<button type="submit" class="remove-gallery-image" aria-label="Remover foto principal">×</button></form></div>@endif
                         @foreach($product->images as $image)
                             <div class="gallery-card"><img src="{{ $image->path }}" alt="Foto de {{ $product->name }}"><form method="POST" action="{{ route('produtos.images.destroy', [$product, $image]) }}">@csrf @method('DELETE')<button type="submit" class="remove-gallery-image" aria-label="Remover foto">×</button></form></div>
                         @endforeach

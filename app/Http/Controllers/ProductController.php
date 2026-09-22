@@ -59,6 +59,16 @@ class ProductController extends Controller
         return back()->with('success', 'Foto removida da galeria.');
     }
 
+    public function destroyMainImage(Product $produto): RedirectResponse
+    {
+        if (Str::startsWith((string) $produto->image_url, '/storage/')) {
+            Storage::disk('public')->delete(Str::after($produto->image_url, '/storage/'));
+        }
+        $produto->update(['image_url' => null]);
+
+        return back()->with('success', 'Foto principal removida.');
+    }
+
     public function storeImages(Request $request, Product $produto): RedirectResponse
     {
         $request->validate([

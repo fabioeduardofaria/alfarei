@@ -87,6 +87,8 @@ class ExampleTest extends TestCase
             'name' => $product->name, 'type' => 'product', 'base_price' => 100, 'production_cost' => 40,
             'image_url' => $product->image_url,
         ])->assertRedirect('/produtos');
+        $this->actingAs($user)->delete("/produtos/{$product->id}/foto-principal")->assertRedirect();
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'image_url' => null]);
     }
 
     public function test_product_can_receive_and_remove_gallery_photos(): void
