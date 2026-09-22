@@ -19,6 +19,7 @@ body{line-height:1.35}.content{padding-bottom:56px}.topbar{box-shadow:0 1px 0 rg
 .attachments-panel .attachment-list .empty{padding:20px!important;margin:0;border:1px dashed #dce4da;border-radius:6px;background:#fafcf9;font-size:11px}
 .attachments-panel .attachment-list{display:block}
 .attachments-panel .attachment-upload{margin-bottom:16px}
+.proposal-link-panel{width:min(970px,100%)}
 @media(max-width:1100px){.quote-editor .pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:800px){.quote-editor .pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:530px){.topbar-search{display:none}.quote-editor .pricing-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.quote-summary .margin-box{grid-column:1/-1}.attachments-panel,.proposal-link-panel{padding:18px}.attachment-actions{flex-wrap:wrap}}
