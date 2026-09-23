@@ -16,7 +16,8 @@ class InventoryReservationService
         foreach ($production->order->items as $item) {
             if ($item->configuration_snapshot && isset($item->configuration_snapshot['material_usage'])) {
                 foreach ($item->configuration_snapshot['material_usage'] as $usage) {
-                    $quantity = round((float) $item->quantity * (float) $usage['quantity_per_unit'], 3);
+                    $rawQuantity = (float) $item->quantity * (float) $usage['quantity_per_unit'];
+                    $quantity = $rawQuantity > 0 ? max(0.001, round($rawQuantity, 3)) : 0;
                     $this->reserveMaterial($production, (int) $usage['material_id'], $quantity);
                 }
 

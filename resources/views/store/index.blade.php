@@ -20,6 +20,10 @@
 <section class="display-store-feature"><div><p class="store-eyebrow">MONTE E VEJA O PREÇO</p><h2>Seu display, do seu jeito.</h2><p>Escolha o tamanho e a quantidade. O preço aparece na hora, sem classificar o desenho nem esperar pela arte.</p></div><a class="store-primary" href="{{ route('loja.display.show') }}">Montar meu display →</a></section>
 @endif
 
+@if($textConfigurator)
+<section class="display-store-feature"><div><p class="store-eyebrow">CRIE E VEJA O PREÇO</p><h2>Seu nome, do seu jeito.</h2><p>Digite um nome ou texto, escolha MDF ou acrílico, acabamento e altura. Veja o valor antes de pedir.</p></div><a class="store-primary" href="{{ route('loja.text.show') }}">Criar meu nome →</a></section>
+@endif
+
 @if($featured->isNotEmpty() && ! $intent && $search === '')
 <section class="featured-section" aria-labelledby="featured-title">
     <div class="section-heading"><div><p class="store-eyebrow">ESCOLHAS DA ALFAREI</p><h2 id="featured-title">Para se inspirar agora.</h2></div><a class="text-link" href="#catalogo">Ver catálogo completo ↗</a></div>

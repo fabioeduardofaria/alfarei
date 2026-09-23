@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\DisplayConfigurator;
+use App\Models\Material;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\QuoteAttachment;
+use App\Models\TextCutoutConfigurator;
 use App\Services\DisplayPricingService;
 use App\Services\QuotePricingService;
 use App\Services\QuoteToOrderService;
+use App\Services\TextCutoutPricingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,10 +21,29 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use InvalidArgumentException;
 
 class QuoteController extends Controller
 {
-    public function __construct(private readonly QuotePricingService $pricing, private readonly QuoteToOrderService $orderService, private readonly DisplayPricingService $displayPricing) {}
+    public function __construct(private readonly QuotePricingService $pricing, private readonly QuoteToOrderService $orderService, private readonly DisplayPricingService $displayPricing, private readonly TextCutoutPricingService $textPricing) {}
+
+    public function textPrice(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'text_content' => ['required', 'string', 'max:100'],
+            'material_id' => ['required', 'exists:materials,id'],
+            'finish' => ['required', 'in:natural,white,painted'],
+            'color' => ['nullable', 'string', 'max:50'],
+            'width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
+            'height_cm' => ['required', 'numeric', 'min:1', 'decimal:0,1'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:100'],
+            'customer_id' => ['nullable', 'exists:customers,id'],
+        ]);
+        $customer = isset($data['customer_id']) ? Customer::find($data['customer_id']) : null;
+        $quote = $this->calculateTextCutout($data, $customer);
+
+        return response()->json(['unit_price' => $quote['unit_price'], 'unit_cost' => $quote['unit_cost'], 'total' => $quote['total'], 'width_cm' => $quote['width_cm'], 'width_estimated' => $quote['width_estimated']]);
+    }
 
     public function displayPrice(Request $request): JsonResponse
     {
@@ -174,7 +196,15 @@ class QuoteController extends Controller
     {
         $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine'])->first();
 
-        return view('quotes.form', ['quote' => $quote, 'customers' => Customer::where('active', true)->orderBy('name')->get(), 'products' => Product::where('active', true)->orderBy('name')->get(), 'displayConfigurator' => $configurator && $this->displayPricing->missingRequirements($configurator) === [] ? $configurator : null]);
+        $textConfigurator = TextCutoutConfigurator::with(['product', 'laserMachine'])->first();
+
+        return view('quotes.form', [
+            'quote' => $quote, 'customers' => Customer::where('active', true)->orderBy('name')->get(),
+            'products' => Product::where('active', true)->orderBy('name')->get(),
+            'displayConfigurator' => $configurator && $this->displayPricing->missingRequirements($configurator) === [] ? $configurator : null,
+            'textConfigurator' => $textConfigurator && $this->textPricing->missingRequirements($textConfigurator) === [] ? $textConfigurator : null,
+            'textMaterials' => $this->textPricing->eligibleMaterials(),
+        ]);
     }
 
     public function storeAttachment(Request $request, Quote $orcamento): RedirectResponse
@@ -216,12 +246,18 @@ class QuoteController extends Controller
         return $request->validate([
             'customer_id' => ['required', 'exists:customers,id'], 'status' => ['nullable', 'in:draft'],
             'valid_until' => ['nullable', 'date'], 'discount' => ['required', 'numeric', 'min:0'], 'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'tax_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'commission_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'target_margin_percent' => ['nullable', 'numeric', 'min:0', 'max:99.99'], 'notes' => ['nullable', 'string', 'max:3000'], 'payment_terms' => ['nullable', 'string', 'max:3000'], 'production_lead_days' => ['nullable', 'integer', 'min:0', 'max:365'], 'delivery_lead_days' => ['nullable', 'integer', 'min:0', 'max:365'], 'deposit_percent' => ['required', 'numeric', 'min:0', 'max:100'],
-            'items' => ['required', 'array', 'min:1'], 'items.*.kind' => ['nullable', 'in:custom,product,display'], 'items.*.product_id' => ['nullable', 'exists:products,id'],
+            'items' => ['required', 'array', 'min:1'], 'items.*.kind' => ['nullable', 'in:custom,product,display,text_cutout'], 'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.description' => ['nullable', 'string', 'max:200'], 'items.*.quantity' => ['required', 'numeric', 'gt:0'],
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0'], 'items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
             'items.*.width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
             'items.*.height_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
             'items.*.reference' => ['nullable', 'string', 'max:100'],
+            'items.*.text_content' => ['nullable', 'string', 'max:100'],
+            'items.*.text_material_id' => ['nullable', 'exists:materials,id'],
+            'items.*.text_finish' => ['nullable', 'in:natural,white,painted'],
+            'items.*.text_color' => ['nullable', 'string', 'max:50'],
+            'items.*.text_width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
+            'items.*.text_height_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
         ]);
     }
 
@@ -253,6 +289,30 @@ class QuoteController extends Controller
                     'unit_price' => $price['unit_price'], 'unit_cost' => $price['unit_cost'],
                     'type' => 'display', 'configuration_snapshot' => $price,
                 ]);
+            } elseif (($item['kind'] ?? null) === 'text_cutout') {
+                if (! isset($item['text_content'], $item['text_material_id'], $item['text_finish'], $item['text_height_cm']) || (float) $item['quantity'] != (int) $item['quantity'] || (int) $item['quantity'] > 100) {
+                    throw ValidationException::withMessages(["items.$index.text_content" => 'Informe texto, material, acabamento, altura e quantidade de 1 a 100.']);
+                }
+                $price = $this->calculateTextCutout([
+                    'text_content' => $item['text_content'], 'material_id' => $item['text_material_id'],
+                    'finish' => $item['text_finish'], 'color' => $item['text_color'] ?? null,
+                    'height_cm' => $item['text_height_cm'], 'width_cm' => $item['text_width_cm'] ?? null,
+                    'quantity' => $item['quantity'],
+                ], $customer);
+                $configurator = TextCutoutConfigurator::firstOrFail();
+                $thickness = rtrim(rtrim(number_format($price['thickness_mm'], 2, ',', ''), '0'), ',');
+                $widthLabel = rtrim(rtrim(number_format($price['width_cm'], 1, ',', ''), '0'), ',');
+                $heightLabel = rtrim(rtrim(number_format($price['height_cm'], 1, ',', ''), '0'), ',');
+                $description = 'Nome/texto "'.$price['text'].'" · '.$price['material_name'].' '.$thickness.' mm · '.$price['finish_label'].' · '.$widthLabel.' × '.$heightLabel.' cm';
+                if (mb_strlen($description) > 200) {
+                    throw ValidationException::withMessages(["items.$index.text_content" => 'Texto e material geram uma descrição longa demais. Reduza o texto para caber na proposta.']);
+                }
+                $item = array_merge($item, [
+                    'product_id' => $configurator->product_id,
+                    'description' => $description,
+                    'unit_price' => $price['unit_price'], 'unit_cost' => $price['unit_cost'],
+                    'type' => 'text_cutout', 'configuration_snapshot' => $price,
+                ]);
             } elseif (! isset($item['description'], $item['unit_price'], $item['unit_cost']) || trim($item['description']) === '' || (($item['kind'] ?? null) === 'product' && empty($item['product_id']))) {
                 throw ValidationException::withMessages(["items.$index.description" => 'Complete a descrição, o produto e os valores deste item.']);
             }
@@ -260,6 +320,23 @@ class QuoteController extends Controller
         unset($item);
 
         return $this->pricing->calculate($data['items'], (float) $data['discount'], (float) ($data['discount_percent'] ?? 0), (float) ($data['tax_percent'] ?? 0), (float) ($data['commission_percent'] ?? 0), (float) ($data['fee_percent'] ?? 0), (float) ($data['target_margin_percent'] ?? 20));
+    }
+
+    private function calculateTextCutout(array $data, ?Customer $customer): array
+    {
+        $configurator = TextCutoutConfigurator::with(['product', 'laserMachine'])->first();
+        if (! $configurator || $this->textPricing->missingRequirements($configurator) !== []) {
+            throw ValidationException::withMessages(['text_cutout' => 'Complete o Configurador de nomes e textos antes de orçar este item.']);
+        }
+        try {
+            return $this->textPricing->quote(
+                $configurator, Material::findOrFail($data['material_id']), $data['text_content'],
+                (float) $data['height_cm'], isset($data['width_cm']) ? (float) $data['width_cm'] : null,
+                $data['finish'], $data['color'] ?? null, (int) $data['quantity'], $customer,
+            );
+        } catch (InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['text_cutout' => $exception->getMessage()]);
+        }
     }
 
     private function displayConfigurator(): DisplayConfigurator

@@ -6,3 +6,10 @@
 .quote-display-status{font-size:10px;color:#5d6f61;margin:9px 0 0}
 .quote-item .item-price[readonly],.quote-item .item-cost[readonly]{background:#f4f8f4;color:#344f3f}
 @media(max-width:700px){.quote-item-heading{grid-template-columns:1fr}.quote-display-fields{grid-template-columns:1fr}}
+.quote-text-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px;padding:14px;background:#f5f7fb;border:1px solid #dce3eb;border-radius:6px}
+.quote-text-content,.quote-text-fields p{grid-column:1/-1}
+.quote-text-fields p{font-size:10px;line-height:1.5;color:#5d6f61;margin:0}
+.quote-text-status{font-size:10px;color:#5d6f61;margin:9px 0 0}
+@media(max-width:700px){.quote-text-fields{grid-template-columns:1fr}}
+.display-store-builder [hidden]{display:none!important}
+.text-config-materials{margin-top:16px;padding:14px;background:#f5f7fb;border:1px solid #dce3eb;border-radius:6px;font-size:11px}.text-config-materials p{display:flex;flex-wrap:wrap;gap:8px;margin:9px 0 0}.text-config-materials span{padding:6px 8px;background:#fff;border:1px solid #dce3eb;border-radius:4px}

@@ -23,8 +23,10 @@ use App\Http\Controllers\StoreAccountController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreDisplayController;
 use App\Http\Controllers\StoreSettingsController;
+use App\Http\Controllers\StoreTextCutoutController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TechnicalSheetController;
+use App\Http\Controllers\TextCutoutConfiguratorController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +35,9 @@ Route::get('loja/produto/{produto}', [StoreController::class, 'product'])->name(
 Route::get('loja/display', [StoreDisplayController::class, 'show'])->name('loja.display.show');
 Route::post('loja/display/preco', [StoreDisplayController::class, 'preview'])->middleware('throttle:30,1')->name('loja.display.preview');
 Route::post('loja/display/carrinho', [StoreDisplayController::class, 'add'])->name('loja.display.add');
+Route::get('loja/nome-personalizado', [StoreTextCutoutController::class, 'show'])->name('loja.text.show');
+Route::post('loja/nome-personalizado/preco', [StoreTextCutoutController::class, 'preview'])->middleware('throttle:30,1')->name('loja.text.preview');
+Route::post('loja/nome-personalizado/carrinho', [StoreTextCutoutController::class, 'add'])->name('loja.text.add');
 Route::get('loja/carrinho', [StoreController::class, 'cart'])->name('loja.cart');
 Route::post('loja/produto/{produto}/carrinho', [StoreController::class, 'add'])->name('loja.add');
 Route::post('loja/carrinho/{key}/remover', [StoreController::class, 'remove'])->where('key', '.*')->name('loja.remove');
@@ -69,6 +74,8 @@ Route::middleware('auth')->group(function () {
     Route::get('administracao/displays', [DisplayConfiguratorController::class, 'edit'])->middleware('access:store_settings')->name('displays.config.edit');
     Route::put('administracao/displays', [DisplayConfiguratorController::class, 'update'])->middleware('access:store_settings')->name('displays.config.update');
     Route::post('administracao/displays/simular', [DisplayConfiguratorController::class, 'simulate'])->middleware('access:store_settings')->name('displays.config.simulate');
+    Route::get('administracao/nomes-textos', [TextCutoutConfiguratorController::class, 'edit'])->middleware('access:store_settings')->name('texts.config.edit');
+    Route::put('administracao/nomes-textos', [TextCutoutConfiguratorController::class, 'update'])->middleware('access:store_settings')->name('texts.config.update');
     Route::resource('clientes', CustomerController::class)->except('show', 'destroy')->middleware('access:customers');
     Route::get('revendedores', [ResellerProgramController::class, 'index'])->middleware('access:customers')->name('revendedores.index');
     Route::get('revendedores/solicitacoes/{application}', [ResellerProgramController::class, 'show'])->middleware('access:customers')->name('revendedores.show');
@@ -107,6 +114,7 @@ Route::middleware('auth')->group(function () {
     Route::get('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'edit'])->middleware('access:products')->name('produtos.technical-sheet.edit');
     Route::put('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'update'])->middleware('access:products')->name('produtos.technical-sheet.update');
     Route::post('orcamentos/display/preco', [QuoteController::class, 'displayPrice'])->middleware('access:quotes')->name('orcamentos.display.price');
+    Route::post('orcamentos/nome-texto/preco', [QuoteController::class, 'textPrice'])->middleware('access:quotes')->name('orcamentos.text.price');
     Route::resource('orcamentos', QuoteController::class)->except('show', 'destroy')->middleware('access:quotes');
     Route::post('orcamentos/{orcamento}/nova-versao', [QuoteController::class, 'createRevision'])->middleware('access:quotes')->name('orcamentos.revision');
     Route::post('orcamentos/{orcamento}/enviar', [QuoteController::class, 'send'])->middleware('access:quotes')->name('orcamentos.send');

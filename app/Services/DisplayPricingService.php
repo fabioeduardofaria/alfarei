@@ -89,8 +89,8 @@ class DisplayPricingService
             'unit_price' => $price, 'total' => round($price * $quantity, 2),
             'customer_group' => $group, 'margin_percent' => $margin,
             'material_usage' => [
-                ['material_id' => $configurator->mdf_material_id, 'quantity_per_unit' => round($mdfQuantity, 3)],
-                ['material_id' => $configurator->adhesive_material_id, 'quantity_per_unit' => round($adhesiveQuantity, 3)],
+                ['material_id' => $configurator->mdf_material_id, 'quantity_per_unit' => round($mdfQuantity, 6)],
+                ['material_id' => $configurator->adhesive_material_id, 'quantity_per_unit' => round($adhesiveQuantity, 6)],
             ],
             'breakdown' => array_map(fn ($value) => round($value, 2), compact('mdf', 'adhesive', 'laser', 'printing', 'application', 'base', 'assembly', 'packaging', 'setupPerUnit')),
         ];

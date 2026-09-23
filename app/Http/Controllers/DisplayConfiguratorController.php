@@ -6,6 +6,7 @@ use App\Models\DisplayConfigurator;
 use App\Models\Machine;
 use App\Models\Material;
 use App\Models\Product;
+use App\Models\TextCutoutConfigurator;
 use App\Services\DisplayPricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -56,6 +57,9 @@ class DisplayConfiguratorController extends Controller
             'wholesale_margin_percent' => ['nullable', 'numeric', 'min:0', 'max:94'],
             'wholesale_min_quantity' => ['required', 'integer', 'min:1', 'max:100'],
         ]);
+        if (! empty($data['product_id']) && TextCutoutConfigurator::where('product_id', $data['product_id'])->exists()) {
+            throw ValidationException::withMessages(['product_id' => 'Este produto já está vinculado ao configurador de nomes e textos.']);
+        }
         if ((float) $data['selling_fee_percent'] + (float) $data['target_margin_percent'] >= 95) {
             throw ValidationException::withMessages(['target_margin_percent' => 'Taxas e margem juntas devem ficar abaixo de 95%.']);
         }

@@ -17,7 +17,7 @@ class QuotePricingService
             $product = ! empty($item['product_id']) ? Product::with('materials', 'machineOperations')->find($item['product_id']) : null;
             $quantity = (float) $item['quantity'];
             $unitPrice = (float) $item['unit_price'];
-            $unitCost = $product && ($item['type'] ?? null) !== 'display' ? $product->calculatedProductionCost() : (float) $item['unit_cost'];
+            $unitCost = $product && ! in_array($item['type'] ?? null, ['display', 'text_cutout'], true) ? $product->calculatedProductionCost() : (float) $item['unit_cost'];
             $lineTotal = round($quantity * $unitPrice, 2);
             $lineCost = round($quantity * $unitCost, 2);
             $subtotal += $lineTotal;
@@ -25,7 +25,7 @@ class QuotePricingService
             $normalized[] = [
                 'product_id' => $product?->id,
                 'description' => $item['description'],
-                'type' => ($item['type'] ?? null) === 'display' ? 'display' : ($product?->type ?? 'custom'),
+                'type' => in_array($item['type'] ?? null, ['display', 'text_cutout'], true) ? $item['type'] : ($product?->type ?? 'custom'),
                 'configuration_snapshot' => $item['configuration_snapshot'] ?? null,
                 'quantity' => $quantity,
                 'unit_price' => $unitPrice,

@@ -8,10 +8,12 @@ use App\Models\FinanceEntry;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\StoreSetting;
+use App\Models\TextCutoutConfigurator;
 use App\Models\User;
 use App\Services\CustomerNotificationService;
 use App\Services\DisplayPricingService;
 use App\Services\StorePricingService;
+use App\Services\TextCutoutPricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,11 +22,12 @@ use Illuminate\View\View;
 
 class StoreController extends Controller
 {
-    public function __construct(private readonly CustomerNotificationService $notifications, private readonly StorePricingService $pricing, private readonly DisplayPricingService $displayPricing) {}
+    public function __construct(private readonly CustomerNotificationService $notifications, private readonly StorePricingService $pricing, private readonly DisplayPricingService $displayPricing, private readonly TextCutoutPricingService $textPricing) {}
 
     public function index(Request $request): View
     {
         $displayConfigurator = $this->availableDisplayConfigurator();
+        $textConfigurator = $this->availableTextConfigurator();
         $intent = $request->query('uso');
         $intent = is_string($intent) && in_array($intent, ['presente', 'decoracao', 'empresa', 'personalizavel', 'pronta-entrega'], true) ? $intent : null;
         $search = $request->query('busca');
@@ -34,8 +37,12 @@ class StoreController extends Controller
 
         $available = Product::query()->where('active', true)->where('store_visible', true);
         $linkedDisplayProductId = DisplayConfigurator::query()->value('product_id');
+        $linkedTextProductId = TextCutoutConfigurator::query()->value('product_id');
         if ($linkedDisplayProductId && ! $displayConfigurator) {
             $available->whereKeyNot($linkedDisplayProductId);
+        }
+        if ($linkedTextProductId && ! $textConfigurator) {
+            $available->whereKeyNot($linkedTextProductId);
         }
         $products = clone $available;
         if (in_array($intent, ['presente', 'decoracao', 'empresa'], true)) {
@@ -54,7 +61,8 @@ class StoreController extends Controller
             'wholesale' => 'COALESCE(wholesale_price, base_price)',
             default => 'base_price',
         };
-        $displayLast = 'CASE WHEN id = '.(int) ($displayConfigurator?->product_id ?? 0).' THEN 1 ELSE 0 END';
+        $configurableIds = array_filter([$displayConfigurator?->product_id, $textConfigurator?->product_id]);
+        $displayLast = 'CASE WHEN id IN ('.implode(',', array_map('intval', $configurableIds ?: [0])).') THEN 1 ELSE 0 END';
         match ($sort) {
             'recentes' => $products->latest(),
             'menor-preco' => $products->orderByRaw($displayLast.' ASC')->orderByRaw($priceColumn.' ASC')->orderBy('name'),
@@ -68,7 +76,7 @@ class StoreController extends Controller
             'featured' => (clone $available)->where('store_featured', true)->orderBy('name')->limit(3)->get(),
             'intent' => $intent, 'search' => $search, 'sort' => $sort,
             'cartCount' => $this->cartCount(), 'pricing' => $this->pricing, 'storeCustomer' => $this->customer(),
-            'displayConfigurator' => $displayConfigurator,
+            'displayConfigurator' => $displayConfigurator, 'textConfigurator' => $textConfigurator,
         ]);
     }
 
@@ -80,6 +88,11 @@ class StoreController extends Controller
 
             return redirect()->route('loja.display.show');
         }
+        if (TextCutoutConfigurator::query()->where('product_id', $produto->id)->exists()) {
+            abort_unless($this->availableTextConfigurator(), 404);
+
+            return redirect()->route('loja.text.show');
+        }
         $produto->load('images');
         $images = collect([$produto->image_url])
             ->filter()
@@ -90,6 +103,9 @@ class StoreController extends Controller
         $related = Product::query()->where('active', true)->where('store_visible', true)->whereKeyNot($produto->id);
         if ($linkedDisplayProductId = DisplayConfigurator::query()->value('product_id')) {
             $related->whereKeyNot($linkedDisplayProductId);
+        }
+        if ($linkedTextProductId = TextCutoutConfigurator::query()->value('product_id')) {
+            $related->whereKeyNot($linkedTextProductId);
         }
         if ($produto->store_occasions) {
             $occasions = $produto->store_occasions;
@@ -106,11 +122,14 @@ class StoreController extends Controller
             if ($linkedDisplayProductId) {
                 $remaining->whereKeyNot($linkedDisplayProductId);
             }
+            if ($linkedTextProductId = TextCutoutConfigurator::query()->value('product_id')) {
+                $remaining->whereKeyNot($linkedTextProductId);
+            }
             $remaining = $remaining->orderByDesc('store_featured')->orderBy('name')->limit(3 - $suggestions->count())->get();
             $suggestions = $suggestions->concat($remaining);
         }
 
-        return view('store.product', ['settings' => $this->settings(), 'product' => $produto, 'images' => $images, 'related' => $suggestions, 'cartCount' => $this->cartCount(), 'pricing' => $this->pricing, 'storeCustomer' => $this->customer()]);
+        return view('store.product', ['settings' => $this->settings(), 'product' => $produto, 'images' => $images, 'related' => $suggestions, 'cartCount' => $this->cartCount(), 'pricing' => $this->pricing, 'storeCustomer' => $this->customer(), 'displayConfigurator' => $this->availableDisplayConfigurator(), 'textConfigurator' => $this->availableTextConfigurator()]);
     }
 
     public function cart(): View
@@ -125,6 +144,11 @@ class StoreController extends Controller
             abort_unless($this->availableDisplayConfigurator(), 404);
 
             return redirect()->route('loja.display.show')->withErrors(['display' => 'Escolha o tamanho do display para ver o preço.']);
+        }
+        if (TextCutoutConfigurator::query()->where('product_id', $produto->id)->exists()) {
+            abort_unless($this->availableTextConfigurator(), 404);
+
+            return redirect()->route('loja.text.show')->withErrors(['text' => 'Configure o nome ou texto para ver o preço.']);
         }
         $data = $request->validate(['quantity' => ['required', 'integer', 'min:1', 'max:100'], 'personalization' => ['nullable', 'string', 'max:500']]);
         $cart = session('store_cart', []);
@@ -231,11 +255,12 @@ class StoreController extends Controller
     {
         $cart = session('store_cart', []);
         $displayProductId = DisplayConfigurator::query()->value('product_id');
+        $textProductId = TextCutoutConfigurator::query()->value('product_id');
         $storeCustomer = $this->customer()?->fresh();
         $products = Product::whereIn('id', collect($cart)->pluck('product_id'))->get()->keyBy('id');
         $quantities = collect($cart)->groupBy('product_id')->map(fn ($items) => $items->sum('quantity'));
 
-        return collect($cart)->map(function ($item, $key) use ($products, $quantities, $displayProductId, $storeCustomer) {
+        return collect($cart)->map(function ($item, $key) use ($products, $quantities, $displayProductId, $textProductId, $storeCustomer) {
             $product = $products->get($item['product_id']);
             if (! $product || ! $product->active || ! $product->store_visible) {
                 return null;
@@ -243,7 +268,10 @@ class StoreController extends Controller
             if ($product->id === $displayProductId && ($item['kind'] ?? null) !== 'display') {
                 return null;
             }
-            if (($item['kind'] ?? null) === 'display' && in_array($item['configuration_snapshot']['customer_group'] ?? 'final', ['reseller', 'wholesale'], true)) {
+            if ($product->id === $textProductId && ($item['kind'] ?? null) !== 'text_cutout') {
+                return null;
+            }
+            if (in_array($item['kind'] ?? null, ['display', 'text_cutout'], true) && in_array($item['configuration_snapshot']['customer_group'] ?? 'final', ['reseller', 'wholesale'], true)) {
                 $group = $item['configuration_snapshot']['customer_group'];
                 if (($item['customer_id'] ?? null) !== $storeCustomer?->id || ($group === 'reseller' && ! $storeCustomer?->hasResellerPricing()) || ($group === 'wholesale' && $storeCustomer?->customer_group !== 'wholesale')) {
                     return null;
@@ -251,11 +279,11 @@ class StoreController extends Controller
             }
 
             $quantity = (int) $item['quantity'];
-            $isDisplay = ($item['kind'] ?? null) === 'display';
-            $unitPrice = $isDisplay ? (float) $item['unit_price'] : $this->pricing->unitPrice($product, $this->customer(), (int) $quantities->get($product->id));
-            $unitCost = $isDisplay ? (float) $item['unit_cost'] : (float) $product->production_cost;
+            $configured = in_array($item['kind'] ?? null, ['display', 'text_cutout'], true);
+            $unitPrice = $configured ? (float) $item['unit_price'] : $this->pricing->unitPrice($product, $this->customer(), (int) $quantities->get($product->id));
+            $unitCost = $configured ? (float) $item['unit_cost'] : (float) $product->production_cost;
 
-            return (object) ['key' => $key, 'product' => $product, 'quantity' => $quantity, 'personalization' => $item['personalization'], 'unitPrice' => $unitPrice, 'unitCost' => $unitCost, 'total' => $unitPrice * $quantity, 'cost' => $unitCost * $quantity, 'configurationSnapshot' => $isDisplay ? $item['configuration_snapshot'] : null];
+            return (object) ['key' => $key, 'product' => $product, 'quantity' => $quantity, 'personalization' => $item['personalization'], 'unitPrice' => $unitPrice, 'unitCost' => $unitCost, 'total' => $unitPrice * $quantity, 'cost' => $unitCost * $quantity, 'configurationSnapshot' => $configured ? $item['configuration_snapshot'] : null];
         })->filter()->values();
     }
 
@@ -276,5 +304,12 @@ class StoreController extends Controller
         $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine'])->where('enabled', true)->first();
 
         return $configurator && $this->displayPricing->missingRequirements($configurator) === [] ? $configurator : null;
+    }
+
+    private function availableTextConfigurator(): ?TextCutoutConfigurator
+    {
+        $configurator = TextCutoutConfigurator::with(['product', 'laserMachine'])->where('enabled', true)->first();
+
+        return $configurator && $this->textPricing->missingRequirements($configurator) === [] ? $configurator : null;
     }
 }

@@ -37,7 +37,13 @@ SQLite é usado somente pelos testes automatizados, em memória, para que a suí
 
 No administrativo, abra `/administracao/displays` (menu **Configurador de displays**). Cadastre antes um produto sob encomenda visível na loja, o MDF 3 mm, o adesivo e a máquina laser. Selecione esses cadastros, configure os custos próprios do display e defina somente a largura e a altura máximas. Na loja, o cliente informa medidas livres em passos de 0,1 cm, dentro desses limites, e recebe o preço antes de comprar. A mesma tela administrativa permite simular um orçamento com as medidas reais. O tempo de laser começa em 3 minutos por unidade e pode ser alterado no configurador.
 
-Use a simulação para conferir custo e preço de 1, 10 e 50 unidades. O configurador só pode ser publicado quando produto, materiais, máquina e ao menos um tamanho ativo estiverem válidos. Depois de publicado, o cliente monta o pedido em `/loja/display` e vê o preço antes de adicionar ao carrinho. O preço e a composição ficam preservados no pedido, mesmo que os custos sejam atualizados depois.
+Use a simulação administrativa para conferir custo e preço nas medidas e quantidade reais. O configurador só pode ser publicado quando produto, materiais, máquina e limites máximos estiverem válidos. Depois de publicado, o cliente monta o pedido em `/loja/display` e vê o preço antes de adicionar ao carrinho. O preço e a composição ficam preservados no pedido, mesmo que os custos sejam atualizados depois.
+
+## Nomes e textos personalizados
+
+Abra `/administracao/nomes-textos` para configurar o produto, a máquina laser, os limites de tamanho, o tempo estimado de corte por caractere, os custos de acabamento e as margens. Os materiais MDF e acrílico elegíveis vêm do cadastro de materiais ativo: cada um precisa ter espessura, dimensões da chapa e custo. O acabamento "sem pintura" usa a cor original da chapa; "branco" e "pintado" usam custos de acabamento configuráveis. Uma chapa branca pronta pode ser cadastrada como material branco e usada sem pintura.
+
+No orçamento, selecione **Nome ou texto recortado** e informe texto, material, acabamento, altura e quantidade. A largura pode ser informada ou estimada pelo sistema; a estimativa e o tempo de corte são parâmetros administrativos, não uma leitura do desenho final. O servidor recalcula o preço ao salvar e guarda a composição na proposta e no pedido. Após habilitar o produto na loja, o cliente usa `/loja/nome-personalizado` para ver o preço e adicionar ao carrinho. Uma arte final fora das medidas cotadas exige nova cotação.
 
 ## Acesso de demonstração
 
