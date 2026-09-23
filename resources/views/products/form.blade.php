@@ -40,13 +40,26 @@
             </div>
         </section>
 
+        <section class="form-section">
+            <div class="section-intro"><div><span>4</span><h2>Como encontrar este produto na loja?</h2></div><p>Escolha as ocasiões em que faz sentido sugeri-lo ao cliente. Pode marcar mais de uma.</p></div>
+            <div class="product-switches">
+                @php($occasions = old('store_occasions', $product->store_occasions ?? []))
+                <label class="option-card"><input type="checkbox" name="store_occasions[]" value="presente" @checked(in_array('presente', $occasions))><span><b>Para presentear</b><small>Lembranças e presentes personalizados.</small></span></label>
+                <label class="option-card"><input type="checkbox" name="store_occasions[]" value="decoracao" @checked(in_array('decoracao', $occasions))><span><b>Para decorar</b><small>Peças para casa, ambientes e eventos.</small></span></label>
+                <label class="option-card"><input type="checkbox" name="store_occasions[]" value="empresa" @checked(in_array('empresa', $occasions))><span><b>Para minha empresa</b><small>Identidade, sinalização e brindes.</small></span></label>
+                <label class="option-card"><input type="hidden" name="store_featured" value="0"><input type="checkbox" name="store_featured" value="1" @checked(old('store_featured', $product->store_featured))><span><b>Destacar na vitrine</b><small>Mostra este item nas escolhas da Alfarei.</small></span></label>
+            </div>
+            @error('store_occasions')<small class="field-error">{{ $message }}</small>@enderror
+            @error('store_occasions.*')<small class="field-error">{{ $message }}</small>@enderror
+        </section>
+
         <details class="product-advanced"><summary>Opções avançadas</summary><div class="form-grid"><label class="span-2">URL externa da imagem <small>(use somente se a foto estiver hospedada em outro site)</small><input type="text" name="image_url" value="{{ old('image_url', $product->image_url) }}" placeholder="https://..."></label><label>URL amigável da loja <small>(opcional)</small><input name="store_slug" value="{{ old('store_slug', $product->store_slug) }}" placeholder="placa-decorativa-personalizada"></label></div></details>
         <div class="form-actions"><a class="secondary" href="{{ route('produtos.index') }}">Cancelar</a><button class="primary" type="submit">{{ $product->exists ? 'Salvar alterações' : 'Salvar produto e continuar' }} →</button></div>
     </form>
 
     @if($product->exists)
         <section class="panel product-photo-panel">
-            <div class="section-intro"><div><span>4</span><h2>Fotos da loja</h2></div><p>Envie ou remova fotos sem precisar salvar os outros campos do produto.</p></div>
+            <div class="section-intro"><div><span>5</span><h2>Fotos da loja</h2></div><p>Envie ou remova fotos sem precisar salvar os outros campos do produto.</p></div>
             <form method="POST" enctype="multipart/form-data" action="{{ route('produtos.images.store', $product) }}">
                 @csrf
                 <div class="form-grid photo-upload-grid">

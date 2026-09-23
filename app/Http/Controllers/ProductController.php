@@ -103,8 +103,11 @@ class ProductController extends Controller
                 }
             }],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'], 'allow_personalization' => ['boolean'],
+            'store_featured' => ['boolean'], 'store_occasions' => ['nullable', 'array', 'max:3'],
+            'store_occasions.*' => ['in:presente,decoracao,empresa'],
             'images' => ['nullable', 'array', 'max:8'], 'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+        $data['store_occasions'] = array_values(array_unique($data['store_occasions'] ?? []));
         if ($request->hasFile('image')) {
             if ($product && Str::startsWith((string) $product->image_url, '/storage/')) {
                 Storage::disk('public')->delete(Str::after($product->image_url, '/storage/'));

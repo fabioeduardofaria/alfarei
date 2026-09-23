@@ -18,9 +18,42 @@ class StoreController extends Controller
 {
     public function __construct(private readonly CustomerNotificationService $notifications) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        return view('store.index', ['settings' => $this->settings(), 'products' => Product::where('active', true)->where('store_visible', true)->orderBy('name')->get(), 'cartCount' => $this->cartCount()]);
+        $intent = $request->query('uso');
+        $intent = is_string($intent) && in_array($intent, ['presente', 'decoracao', 'empresa', 'personalizavel', 'pronta-entrega'], true) ? $intent : null;
+        $search = $request->query('busca');
+        $search = is_string($search) ? mb_substr(trim($search), 0, 100) : '';
+        $sort = $request->query('ordenar');
+        $sort = is_string($sort) && in_array($sort, ['destaques', 'recentes', 'menor-preco', 'maior-preco'], true) ? $sort : 'destaques';
+
+        $available = Product::query()->where('active', true)->where('store_visible', true);
+        $products = clone $available;
+        if (in_array($intent, ['presente', 'decoracao', 'empresa'], true)) {
+            $products->whereJsonContains('store_occasions', $intent);
+        } elseif ($intent === 'personalizavel') {
+            $products->where('allow_personalization', true);
+        } elseif ($intent === 'pronta-entrega') {
+            $products->where('made_to_order', false);
+        }
+        if ($search !== '') {
+            $products->where(fn ($query) => $query->where('name', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%"));
+        }
+        match ($sort) {
+            'recentes' => $products->latest(),
+            'menor-preco' => $products->orderBy('base_price')->orderBy('name'),
+            'maior-preco' => $products->orderByDesc('base_price')->orderBy('name'),
+            default => $products->orderByDesc('store_featured')->orderBy('name'),
+        };
+
+        return view('store.index', [
+            'settings' => $this->settings(),
+            'products' => $products->paginate(12)->withQueryString(),
+            'featured' => (clone $available)->where('store_featured', true)->orderBy('name')->limit(3)->get(),
+            'intent' => $intent, 'search' => $search, 'sort' => $sort,
+            'cartCount' => $this->cartCount(),
+        ]);
     }
 
     public function product(Product $produto): View
@@ -33,7 +66,24 @@ class StoreController extends Controller
             ->unique()
             ->values();
 
-        return view('store.product', ['settings' => $this->settings(), 'product' => $produto, 'images' => $images, 'cartCount' => $this->cartCount()]);
+        $related = Product::query()->where('active', true)->where('store_visible', true)->whereKeyNot($produto->id);
+        if ($produto->store_occasions) {
+            $occasions = $produto->store_occasions;
+            $related->where(function ($query) use ($occasions): void {
+                foreach ($occasions as $occasion) {
+                    $query->orWhereJsonContains('store_occasions', $occasion);
+                }
+            });
+        }
+        $suggestions = $related->orderByDesc('store_featured')->orderBy('name')->limit(3)->get();
+        if ($suggestions->count() < 3) {
+            $remaining = Product::query()->where('active', true)->where('store_visible', true)
+                ->whereNotIn('id', $suggestions->pluck('id')->push($produto->id))
+                ->orderByDesc('store_featured')->orderBy('name')->limit(3 - $suggestions->count())->get();
+            $suggestions = $suggestions->concat($remaining);
+        }
+
+        return view('store.product', ['settings' => $this->settings(), 'product' => $produto, 'images' => $images, 'related' => $suggestions, 'cartCount' => $this->cartCount()]);
     }
 
     public function cart(): View

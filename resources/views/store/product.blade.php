@@ -16,7 +16,7 @@
         @endif
     </div>
     <div class="product-info">
-        <a class="back-store" href="{{ route('loja.index') }}">← Voltar à loja</a>
+        <a class="back-store" href="{{ route('loja.index') }}#catalogo">← Voltar ao catálogo</a>
         <p class="store-eyebrow">{{ $product->type === 'service' ? 'SERVIÇO' : 'PRODUTO ALFAREI' }}</p>
         <h1>{{ $product->name }}</h1>
         <p class="product-description">{{ $product->description }}</p>
@@ -32,6 +32,7 @@
         <small class="delivery-note">{{ $settings->delivery_message }}</small>
     </div>
 </section>
+@if($related->isNotEmpty())<section class="related-products store-section"><div class="section-heading"><div><p class="store-eyebrow">CONTINUE EXPLORANDO</p><h2>Mais ideias para você.</h2></div><a class="text-link" href="{{ route('loja.index') }}#catalogo">Ver catálogo ↗</a></div><div class="product-grid">@foreach($related as $product) @include('store.partials.product-card', ['product' => $product]) @endforeach</div></section>@endif
 @if($images->count() > 1)
 <script>document.querySelectorAll('.product-thumbnails button').forEach(button=>button.addEventListener('click',()=>{document.getElementById('mainProductImage').style.backgroundImage=`url("${button.dataset.image}")`;document.querySelectorAll('.product-thumbnails button').forEach(item=>item.classList.toggle('active',item===button));}));</script>
 @endif
