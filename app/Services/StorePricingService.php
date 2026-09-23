@@ -7,9 +7,21 @@ use App\Models\Product;
 
 class StorePricingService
 {
+    public function effectiveGroup(?Customer $customer): string
+    {
+        if (! $customer?->active) {
+            return 'final';
+        }
+        if ($customer->customer_group === 'reseller') {
+            return $customer->hasResellerPricing() ? 'reseller' : 'final';
+        }
+
+        return $customer->customer_group === 'wholesale' ? 'wholesale' : 'final';
+    }
+
     public function offer(Product $product, ?Customer $customer): array
     {
-        $group = $customer?->active ? $customer->customer_group : 'final';
+        $group = $this->effectiveGroup($customer);
         $prefix = match ($group) {
             'reseller' => 'reseller',
             'wholesale' => 'wholesale',

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CustomerController extends Controller
@@ -26,7 +27,18 @@ class CustomerController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Customer::create($this->validated($request));
+        $data = $this->validated($request);
+        DB::transaction(function () use ($data, $request): void {
+            if ($data['customer_group'] === 'reseller') {
+                $data['reseller_status'] = 'approved';
+                $data['reseller_approved_at'] = now();
+                $data['reseller_reviewed_at'] = now();
+            }
+            $customer = Customer::create($data);
+            if ($data['customer_group'] === 'reseller') {
+                $customer->resellerEvents()->create(['actor_user_id' => $request->user()->id, 'event' => 'manual_approval', 'note' => 'Perfil revendedor atribuído no cadastro administrativo.']);
+            }
+        });
 
         return redirect()->route('clientes.index')->with('success', 'Cliente cadastrado com sucesso.');
     }
@@ -38,7 +50,22 @@ class CustomerController extends Controller
 
     public function update(Request $request, Customer $cliente): RedirectResponse
     {
-        $cliente->update($this->validated($request, $cliente));
+        $data = $this->validated($request, $cliente);
+        DB::transaction(function () use ($cliente, $data, $request): void {
+            $previousGroup = $cliente->customer_group;
+            if ($data['customer_group'] === 'reseller' && $previousGroup !== 'reseller') {
+                $data['reseller_status'] = 'approved';
+                $data['reseller_approved_at'] = now();
+                $data['reseller_reviewed_at'] = now();
+            } elseif ($previousGroup === 'reseller' && $data['customer_group'] !== 'reseller') {
+                $data['reseller_status'] = 'suspended';
+                $data['reseller_reviewed_at'] = now();
+            }
+            $cliente->update($data);
+            if ($previousGroup !== $data['customer_group'] && ($previousGroup === 'reseller' || $data['customer_group'] === 'reseller')) {
+                $cliente->resellerEvents()->create(['actor_user_id' => $request->user()->id, 'event' => $data['customer_group'] === 'reseller' ? 'manual_approval' : 'manual_group_change', 'note' => 'Grupo alterado manualmente de '.$previousGroup.' para '.$data['customer_group'].'.']);
+            }
+        });
 
         return redirect()->route('clientes.index')->with('success', 'Cliente atualizado com sucesso.');
     }

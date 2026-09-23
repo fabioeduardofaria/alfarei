@@ -42,7 +42,7 @@ class StoreController extends Controller
             $products->where(fn ($query) => $query->where('name', 'like', "%{$search}%")
                 ->orWhere('description', 'like', "%{$search}%"));
         }
-        $priceColumn = match ($this->customer()?->customer_group) {
+        $priceColumn = match ($this->pricing->effectiveGroup($this->customer())) {
             'reseller' => 'COALESCE(reseller_price, base_price)',
             'wholesale' => 'COALESCE(wholesale_price, base_price)',
             default => 'base_price',

@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="{{ asset('css/crm.css') }}">
     <link rel="stylesheet" href="{{ asset('css/brand.css') }}?v={{ filemtime(public_path('css/brand.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/finance.css') }}?v={{ filemtime(public_path('css/finance.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/resellers.css') }}?v={{ filemtime(public_path('css/resellers.css')) }}">
 </head>
 <body>
 <div class="shell">
@@ -22,6 +23,7 @@
             @if(auth()->user()->canAccess('dashboard'))<a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">⌂ <span>Painel</span></a>@endif
             <p>CADASTROS</p>
             @if(auth()->user()->canAccess('customers'))<a class="{{ request()->routeIs('clientes.*') ? 'active' : '' }}" href="{{ route('clientes.index') }}">◉ <span>Clientes</span></a>@endif
+            @if(auth()->user()->canAccess('customers'))<a class="{{ request()->routeIs('revendedores.*') ? 'active' : '' }}" href="{{ route('revendedores.index') }}">♧ <span>Programa de revenda</span></a>@endif
             @if(auth()->user()->canAccess('crm'))<a class="{{ request()->routeIs('crm.*') ? 'active' : '' }}" href="{{ route('crm.index') }}">◌ <span>CRM e oportunidades</span></a>@endif
             @if(auth()->user()->canAccess('materials'))<a class="{{ request()->routeIs('materiais.*') ? 'active' : '' }}" href="{{ route('materiais.index') }}">◇ <span>Materiais</span></a>@endif
             @if(auth()->user()->canAccess('suppliers'))<a class="{{ request()->routeIs('fornecedores.*') ? 'active' : '' }}" href="{{ route('fornecedores.index') }}">◌ <span>Fornecedores</span></a>@endif
