@@ -30,6 +30,11 @@
             @if(auth()->user()->canAccess('materials'))<a class="{{ request()->routeIs('materiais.*') ? 'active' : '' }}" href="{{ route('materiais.index') }}">◇ <span>Materiais</span></a>@endif
             @if(auth()->user()->canAccess('suppliers'))<a class="{{ request()->routeIs('fornecedores.*') ? 'active' : '' }}" href="{{ route('fornecedores.index') }}">◌ <span>Fornecedores</span></a>@endif
             @if(auth()->user()->canAccess('products'))<a class="{{ request()->routeIs('produtos.*') ? 'active' : '' }}" href="{{ route('produtos.index') }}">▧ <span>Produtos e serviços</span></a>@endif
+            @if(auth()->user()->canAccess('store_settings'))
+                <p>CONFIGURADORES</p>
+                <a class="{{ request()->routeIs('displays.config.*') ? 'active' : '' }}" href="{{ route('displays.config.edit') }}">▤ <span>Displays adesivados</span></a>
+                <a class="{{ request()->routeIs('texts.config.*') ? 'active' : '' }}" href="{{ route('texts.config.edit') }}">✎ <span>Nomes e textos</span></a>
+            @endif
             <p>PRÓXIMAS ETAPAS</p>
             @if(auth()->user()->canAccess('quotes'))<a class="{{ request()->routeIs('orcamentos.*') ? 'active' : '' }}" href="{{ route('orcamentos.index') }}">◫ <span>Orçamentos</span></a>@endif
             @if(auth()->user()->canAccess('orders'))<a class="{{ request()->routeIs('pedidos.*') ? 'active' : '' }}" href="{{ route('pedidos.index') }}">▣ <span>Pedidos</span></a>@endif
@@ -40,8 +45,6 @@
             @if(auth()->user()->canAccess('purchases'))<a class="{{ request()->routeIs('compras.*') ? 'active' : '' }}" href="{{ route('compras.index') }}">▤ <span>Compras</span></a>@endif
             @if(auth()->user()->canAccess('finance'))<a class="{{ request()->routeIs('financeiro.*') ? 'active' : '' }}" href="{{ route('financeiro.index') }}">▤ <span>Financeiro</span></a>@endif
             @if(auth()->user()->canAccess('store_settings'))<a class="{{ request()->routeIs('loja.settings.*') ? 'active' : '' }}" href="{{ route('loja.settings.edit') }}">◉ <span>Configurar loja</span></a>@endif
-            @if(auth()->user()->canAccess('store_settings'))<a class="{{ request()->routeIs('displays.config.*') ? 'active' : '' }}" href="{{ route('displays.config.edit') }}">▤ <span>Configurador de displays</span></a>@endif
-            @if(auth()->user()->canAccess('store_settings'))<a class="{{ request()->routeIs('texts.config.*') ? 'active' : '' }}" href="{{ route('texts.config.edit') }}">✎ <span>Nomes e textos</span></a>@endif
             @if(auth()->user()->canAccess('users'))<a class="{{ request()->routeIs('usuarios.*') ? 'active' : '' }}" href="{{ route('usuarios.index') }}">♙ <span>Usuários e acessos</span></a>@endif
         </nav>
         <div class="user-panel"><div class="user-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div><div><a href="{{ route('perfil.edit') }}"><b>{{ auth()->user()->name }}</b><small>Minha conta</small></a></div><form method="POST" action="{{ route('logout') }}">@csrf<button title="Sair">↪</button></form></div>
