@@ -9,14 +9,16 @@ use App\Models\Product;
 use App\Models\StoreSetting;
 use App\Models\User;
 use App\Services\CustomerNotificationService;
+use App\Services\StorePricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class StoreController extends Controller
 {
-    public function __construct(private readonly CustomerNotificationService $notifications) {}
+    public function __construct(private readonly CustomerNotificationService $notifications, private readonly StorePricingService $pricing) {}
 
     public function index(Request $request): View
     {
@@ -40,10 +42,15 @@ class StoreController extends Controller
             $products->where(fn ($query) => $query->where('name', 'like', "%{$search}%")
                 ->orWhere('description', 'like', "%{$search}%"));
         }
+        $priceColumn = match ($this->customer()?->customer_group) {
+            'reseller' => 'COALESCE(reseller_price, base_price)',
+            'wholesale' => 'COALESCE(wholesale_price, base_price)',
+            default => 'base_price',
+        };
         match ($sort) {
             'recentes' => $products->latest(),
-            'menor-preco' => $products->orderBy('base_price')->orderBy('name'),
-            'maior-preco' => $products->orderByDesc('base_price')->orderBy('name'),
+            'menor-preco' => $products->orderByRaw($priceColumn.' ASC')->orderBy('name'),
+            'maior-preco' => $products->orderByRaw($priceColumn.' DESC')->orderBy('name'),
             default => $products->orderByDesc('store_featured')->orderBy('name'),
         };
 
@@ -52,7 +59,7 @@ class StoreController extends Controller
             'products' => $products->paginate(12)->withQueryString(),
             'featured' => (clone $available)->where('store_featured', true)->orderBy('name')->limit(3)->get(),
             'intent' => $intent, 'search' => $search, 'sort' => $sort,
-            'cartCount' => $this->cartCount(),
+            'cartCount' => $this->cartCount(), 'pricing' => $this->pricing, 'storeCustomer' => $this->customer(),
         ]);
     }
 
@@ -83,12 +90,12 @@ class StoreController extends Controller
             $suggestions = $suggestions->concat($remaining);
         }
 
-        return view('store.product', ['settings' => $this->settings(), 'product' => $produto, 'images' => $images, 'related' => $suggestions, 'cartCount' => $this->cartCount()]);
+        return view('store.product', ['settings' => $this->settings(), 'product' => $produto, 'images' => $images, 'related' => $suggestions, 'cartCount' => $this->cartCount(), 'pricing' => $this->pricing, 'storeCustomer' => $this->customer()]);
     }
 
     public function cart(): View
     {
-        return view('store.cart', ['settings' => $this->settings(), 'lines' => $this->lines(), 'cartCount' => $this->cartCount()]);
+        return view('store.cart', ['settings' => $this->settings(), 'lines' => $this->lines(), 'cartCount' => $this->cartCount(), 'storeCustomer' => $this->customer()]);
     }
 
     public function add(Request $request, Product $produto): RedirectResponse
@@ -97,6 +104,9 @@ class StoreController extends Controller
         $data = $request->validate(['quantity' => ['required', 'integer', 'min:1', 'max:100'], 'personalization' => ['nullable', 'string', 'max:500']]);
         $cart = session('store_cart', []);
         $key = $produto->id.'|'.($data['personalization'] ?? '');
+        if (($cart[$key]['quantity'] ?? 0) + $data['quantity'] > 100) {
+            return back()->withErrors(['quantity' => 'O limite é de 100 unidades por item.']);
+        }
         $cart[$key] = ['product_id' => $produto->id, 'quantity' => ($cart[$key]['quantity'] ?? 0) + $data['quantity'], 'personalization' => $data['personalization'] ?? null];
         session(['store_cart' => $cart]);
 
@@ -117,7 +127,7 @@ class StoreController extends Controller
         $lines = $this->lines();
         abort_if($lines->isEmpty(), 404);
 
-        return view('store.checkout', ['settings' => $this->settings(), 'lines' => $lines, 'cartCount' => $this->cartCount()]);
+        return view('store.checkout', ['settings' => $this->settings(), 'lines' => $lines, 'cartCount' => $this->cartCount(), 'storeCustomer' => $this->customer()]);
     }
 
     public function placeOrder(Request $request): RedirectResponse
@@ -131,18 +141,28 @@ class StoreController extends Controller
             return redirect()->route('loja.index');
         }
         $data = $request->validate(['name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'max:150'], 'phone' => ['required', 'string', 'max:30'], 'city' => ['required', 'string', 'max:100'], 'state' => ['required', 'string', 'size:2'], 'delivery_method' => ['required', 'in:pickup,shipping'], 'postal_code' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:12'], 'street' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:150'], 'street_number' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:20'], 'complement' => ['nullable', 'string', 'max:100'], 'neighborhood' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:100'], 'delivery_city' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'max:100'], 'delivery_state' => ['required_if:delivery_method,shipping', 'nullable', 'string', 'size:2'], 'notes' => ['nullable', 'string', 'max:1000']]);
+        $authenticatedCustomer = $this->customer();
+        if ($authenticatedCustomer) {
+            $data['name'] = $authenticatedCustomer->name;
+            $data['email'] = $authenticatedCustomer->email;
+        } else {
+            $existingCustomer = Customer::where('email', $data['email'])->first();
+            if ($existingCustomer && ($existingCustomer->password || $existingCustomer->customer_group !== 'final')) {
+                return back()->withErrors(['email' => 'Esta conta já existe. Entre na loja para concluir o pedido.'])->onlyInput('name', 'email', 'phone', 'city', 'state');
+            }
+        }
         if (($data['delivery_method'] === 'pickup' && ! $settings->pickup_enabled) || ($data['delivery_method'] === 'shipping' && ! $settings->shipping_enabled)) {
             return back()->withErrors(['delivery_method' => 'Esta modalidade de recebimento não está disponível no momento.']);
         }
 
-        $order = DB::transaction(function () use ($data, $lines, $settings) {
-            $customer = Customer::firstOrCreate(['email' => $data['email']], ['type' => 'PF', 'name' => $data['name'], 'phone' => $data['phone'], 'city' => $data['city'], 'state' => strtoupper($data['state']), 'customer_group' => 'final', 'active' => true]);
+        $order = DB::transaction(function () use ($data, $lines, $settings, $authenticatedCustomer) {
+            $customer = $authenticatedCustomer ?? Customer::firstOrCreate(['email' => $data['email']], ['type' => 'PF', 'name' => $data['name'], 'phone' => $data['phone'], 'city' => $data['city'], 'state' => strtoupper($data['state']), 'customer_group' => 'final', 'active' => true]);
             $total = $lines->sum('total');
             $cost = $lines->sum('cost');
             $deposit = round($total * ((float) $settings->deposit_percent / 100), 2);
             $order = Order::create(['number' => sprintf('PED-%s-%04d', now()->format('Y'), Order::count() + 1), 'customer_id' => $customer->id, 'created_by' => User::where('active', true)->value('id') ?? 1, 'status' => 'awaiting_deposit', 'source' => 'ecommerce', 'delivery_method' => $data['delivery_method'], 'postal_code' => $data['postal_code'] ?? null, 'street' => $data['street'] ?? null, 'street_number' => $data['street_number'] ?? null, 'complement' => $data['complement'] ?? null, 'neighborhood' => $data['neighborhood'] ?? null, 'delivery_city' => $data['delivery_city'] ?? null, 'delivery_state' => isset($data['delivery_state']) ? strtoupper($data['delivery_state']) : null, 'total' => $total, 'cost_total' => $cost, 'deposit_amount' => $deposit, 'notes' => $data['notes'] ?? null]);
             foreach ($lines as $line) {
-                $order->items()->create(['product_id' => $line->product->id, 'description' => $line->product->name.($line->personalization ? ' · Personalização: '.$line->personalization : ''), 'type' => $line->product->type, 'quantity' => $line->quantity, 'unit_price' => $line->product->base_price, 'unit_cost' => $line->product->production_cost, 'total' => $line->total, 'total_cost' => $line->cost, 'made_to_order' => $line->product->made_to_order]);
+                $order->items()->create(['product_id' => $line->product->id, 'description' => $line->product->name.($line->personalization ? ' · Personalização: '.$line->personalization : ''), 'type' => $line->product->type, 'quantity' => $line->quantity, 'unit_price' => $line->unitPrice, 'unit_cost' => $line->product->production_cost, 'total' => $line->total, 'total_cost' => $line->cost, 'made_to_order' => $line->product->made_to_order]);
             }
             $payment = $order->payments()->create(['type' => 'deposit', 'status' => 'pending', 'amount' => $deposit, 'due_date' => now()->toDateString()]);
             FinanceEntry::create(['type' => 'receivable', 'source_type' => 'payment', 'source_id' => $payment->id, 'description' => 'Entrada do pedido '.$order->number, 'counterparty' => $customer->name, 'due_date' => now()->toDateString(), 'amount' => $deposit]);
@@ -186,19 +206,30 @@ class StoreController extends Controller
     {
         $cart = session('store_cart', []);
         $products = Product::whereIn('id', collect($cart)->pluck('product_id'))->get()->keyBy('id');
+        $quantities = collect($cart)->groupBy('product_id')->map(fn ($items) => $items->sum('quantity'));
 
-        return collect($cart)->map(function ($item, $key) use ($products) {
+        return collect($cart)->map(function ($item, $key) use ($products, $quantities) {
             $product = $products->get($item['product_id']);
             if (! $product || ! $product->active || ! $product->store_visible) {
                 return null;
             }
 
-            return (object) ['key' => $key, 'product' => $product, 'quantity' => $item['quantity'], 'personalization' => $item['personalization'], 'total' => (float) $product->base_price * $item['quantity'], 'cost' => (float) $product->production_cost * $item['quantity']];
+            $quantity = (int) $item['quantity'];
+            $unitPrice = $this->pricing->unitPrice($product, $this->customer(), (int) $quantities->get($product->id));
+
+            return (object) ['key' => $key, 'product' => $product, 'quantity' => $quantity, 'personalization' => $item['personalization'], 'unitPrice' => $unitPrice, 'total' => $unitPrice * $quantity, 'cost' => (float) $product->production_cost * $quantity];
         })->filter()->values();
     }
 
     private function cartCount(): int
     {
         return (int) $this->lines()->sum('quantity');
+    }
+
+    private function customer(): ?Customer
+    {
+        $customer = Auth::guard('customer')->user();
+
+        return $customer?->active ? $customer : null;
     }
 }

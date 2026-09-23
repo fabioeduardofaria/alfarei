@@ -1,0 +1,40 @@
+.store-header nav{gap:17px}
+.store-header nav form{margin:0}
+.store-header nav form button,.store-mobile-menu form button{font:inherit;background:none;border:0;color:var(--leaf);cursor:pointer;padding:0}
+.store-account-name{font-size:11px;color:#68766d;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tier-pricing-admin{border-top:1px solid #e6eae5;margin-top:24px;padding-top:22px}
+.tier-pricing-admin h3{font-size:15px;margin:0 0 5px}
+.tier-pricing-admin>p{font-size:12px;color:#65746a;line-height:1.5;margin:0 0 16px}
+.normal-price{display:block;color:#728076;font-size:11px;margin-top:12px}
+.tier-card-price{margin:7px 0 4px!important}
+.tier-card-price small{display:inline!important;font:normal 11px Arial,sans-serif;color:#647469}
+.tier-minimum{display:block;color:var(--leaf);font-size:11px;line-height:1.45;font-weight:bold;margin-bottom:15px}
+.product-pricing .normal-price{font-size:13px}
+.product-pricing .product-price{margin:8px 0 6px}
+.product-pricing .tier-minimum{font-size:12px;font-weight:normal;max-width:390px;margin-bottom:23px}
+.product-pricing.tier-active .tier-minimum{font-weight:bold}
+.product-info input[type=number]{display:block;width:100%;border:1px solid #cdd6cd;background:#fff;padding:11px;border-radius:3px;margin-top:7px;font:12px Arial,sans-serif}
+.store-account-page{max-width:1050px;min-height:620px;margin:0 auto;padding:80px 30px;display:grid;grid-template-columns:1fr 390px;gap:70px;align-items:start}
+.store-account-intro{padding-top:45px}
+.store-account-intro h1{font:600 clamp(37px,4vw,53px)/1.05 Georgia,serif;margin:0 0 24px}
+.store-account-intro>p:not(.store-eyebrow){color:#69766d;line-height:1.7;font-size:14px;max-width:450px}
+.store-account-intro>a{display:inline-block;margin-top:20px;color:var(--leaf);font-size:12px;font-weight:bold}
+.store-account-card{background:#fff;border:1px solid var(--line);padding:30px;box-shadow:0 15px 35px rgba(25,49,40,.06)}
+.store-account-card h2{font:600 28px Georgia,serif;margin:0 0 25px}
+.store-account-card label{display:block;font-size:11px;font-weight:bold;margin:0 0 17px}
+.store-account-card input{display:block;width:100%;margin-top:7px;border:1px solid #cdd6cd;border-radius:3px;padding:12px;font:13px Arial,sans-serif}
+.store-account-card .store-primary{width:100%;margin:8px 0 13px}
+.store-account-card p{font-size:12px;line-height:1.5}
+.store-account-card p a{font-weight:bold;color:var(--leaf);text-decoration:underline}
+.store-account-card>small{display:block;font-size:11px;line-height:1.5;color:#748078}
+.account-error{display:block;color:#a3443e;font-size:11px;margin:5px 0 12px}
+.tier-applied{color:var(--leaf)!important;font-weight:bold}
+.checkout-lines{border-top:1px solid var(--line);padding-top:17px}
+.checkout-lines>b{display:block;font-size:12px;margin-bottom:10px}
+.checkout-lines>div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:12px;border-bottom:1px solid #edf0ea}
+.checkout-lines small{display:block;color:#68766d;font-size:10px;margin-top:3px}
+.checkout-lines strong{white-space:nowrap}
+.mobile-account-name{font-size:11px;color:#69766d;padding:9px 12px}
+.store-mobile-menu form{padding:12px;border-bottom:1px solid #edf0ea}
+@media(max-width:1050px){.store-account-name{display:none}.store-header nav{gap:11px}}
+@media(max-width:760px){.store-account-page{grid-template-columns:1fr;gap:24px;min-height:0;padding:40px 20px 70px}.store-account-intro{padding-top:0}.store-account-card{padding:23px}.store-header nav form{display:none}.store-mobile-menu form{display:block}}

@@ -28,6 +28,15 @@
             <div class="section-intro"><div><span>2</span><h2>Preço e custo</h2></div><p>O custo será recalculado pela ficha técnica quando materiais e operações forem cadastrados.</p></div>
             <div class="form-grid"><label>Preço que o cliente paga (R$)<input type="number" step="0.01" min="0" name="base_price" value="{{ old('base_price', $product->base_price ?? 0) }}" required></label><label>Custo atual de produção (R$)<input type="number" step="0.01" min="0" name="production_cost" value="{{ old('production_cost', $product->production_cost ?? 0) }}" required></label></div>
             <p class="form-tip">Depois de salvar, abra a <b>Ficha técnica</b> para compor o custo com materiais, tempo e máquinas.</p>
+            <div class="tier-pricing-admin">
+                <h3>Preços para clientes da loja</h3><p>O preço acima vale para visitantes e clientes finais. Cada grupo especial só recebe seu valor quando atingir a quantidade mínima no mesmo produto.</p>
+                <div class="form-grid">
+                    <label>Preço revendedor (R$)<input type="number" step="0.01" min="0" name="reseller_price" value="{{ old('reseller_price', $product->reseller_price) }}" placeholder="Deixe vazio para não oferecer">@error('reseller_price')<small class="field-error">{{ $message }}</small>@enderror</label>
+                    <label>Quantidade mínima revendedor<input type="number" min="1" max="100" name="reseller_min_quantity" value="{{ old('reseller_min_quantity', $product->reseller_min_quantity) }}" placeholder="Ex.: 5">@error('reseller_min_quantity')<small class="field-error">{{ $message }}</small>@enderror</label>
+                    <label>Preço atacado (R$)<input type="number" step="0.01" min="0" name="wholesale_price" value="{{ old('wholesale_price', $product->wholesale_price) }}" placeholder="Deixe vazio para não oferecer">@error('wholesale_price')<small class="field-error">{{ $message }}</small>@enderror</label>
+                    <label>Quantidade mínima atacado<input type="number" min="1" max="100" name="wholesale_min_quantity" value="{{ old('wholesale_min_quantity', $product->wholesale_min_quantity) }}" placeholder="Ex.: 20">@error('wholesale_min_quantity')<small class="field-error">{{ $message }}</small>@enderror</label>
+                </div>
+            </div>
         </section>
 
         <section class="form-section">

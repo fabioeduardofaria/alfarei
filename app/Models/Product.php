@@ -11,11 +11,11 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['sku', 'name', 'type', 'base_price', 'production_cost', 'made_to_order', 'active', 'description', 'store_visible', 'store_slug', 'image_url', 'allow_personalization', 'store_occasions', 'store_featured'];
+    protected $fillable = ['sku', 'name', 'type', 'base_price', 'production_cost', 'made_to_order', 'active', 'description', 'store_visible', 'store_slug', 'image_url', 'allow_personalization', 'store_occasions', 'store_featured', 'reseller_price', 'reseller_min_quantity', 'wholesale_price', 'wholesale_min_quantity'];
 
     protected function casts(): array
     {
-        return ['base_price' => 'decimal:2', 'production_cost' => 'decimal:2', 'made_to_order' => 'boolean', 'active' => 'boolean', 'store_visible' => 'boolean', 'allow_personalization' => 'boolean', 'store_occasions' => 'array', 'store_featured' => 'boolean'];
+        return ['base_price' => 'decimal:2', 'production_cost' => 'decimal:2', 'made_to_order' => 'boolean', 'active' => 'boolean', 'store_visible' => 'boolean', 'allow_personalization' => 'boolean', 'store_occasions' => 'array', 'store_featured' => 'boolean', 'reseller_price' => 'decimal:2', 'wholesale_price' => 'decimal:2', 'reseller_min_quantity' => 'integer', 'wholesale_min_quantity' => 'integer'];
     }
 
     public function materials(): BelongsToMany

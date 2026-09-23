@@ -105,6 +105,10 @@ class ProductController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'], 'allow_personalization' => ['boolean'],
             'store_featured' => ['boolean'], 'store_occasions' => ['nullable', 'array', 'max:3'],
             'store_occasions.*' => ['in:presente,decoracao,empresa'],
+            'reseller_price' => ['nullable', 'required_with:reseller_min_quantity', 'numeric', 'min:0', 'lte:base_price'],
+            'reseller_min_quantity' => ['nullable', 'required_with:reseller_price', 'integer', 'min:1', 'max:100'],
+            'wholesale_price' => ['nullable', 'required_with:wholesale_min_quantity', 'numeric', 'min:0', 'lte:base_price'],
+            'wholesale_min_quantity' => ['nullable', 'required_with:wholesale_price', 'integer', 'min:1', 'max:100'],
             'images' => ['nullable', 'array', 'max:8'], 'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $data['store_occasions'] = array_values(array_unique($data['store_occasions'] ?? []));
