@@ -33,6 +33,12 @@ O ambiente local usa MySQL com o banco `alfarei`. A conexão está configurada n
 
 SQLite é usado somente pelos testes automatizados, em memória, para que a suíte não altere dados locais.
 
+## Display personalizado na loja
+
+No administrativo, abra `/administracao/displays` (menu **Configurador de displays**). Cadastre antes um produto sob encomenda visível na loja, o MDF 3 mm, o adesivo e a máquina laser. Selecione esses cadastros, configure os custos próprios do display e adicione os tamanhos disponíveis. O tempo de laser começa em 3 minutos por unidade e pode ser alterado globalmente ou por tamanho.
+
+Use a simulação para conferir custo e preço de 1, 10 e 50 unidades. O configurador só pode ser publicado quando produto, materiais, máquina e ao menos um tamanho ativo estiverem válidos. Depois de publicado, o cliente monta o pedido em `/loja/display` e vê o preço antes de adicionar ao carrinho. O preço e a composição ficam preservados no pedido, mesmo que os custos sejam atualizados depois.
+
 ## Acesso de demonstração
 
 - E-mail: `admin@alfarei.local`

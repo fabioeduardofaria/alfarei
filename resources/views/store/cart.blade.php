@@ -9,9 +9,9 @@
                 @foreach($lines as $line)
                     <div>
                         <span class="cart-thumb">{{ strtoupper(substr($line->product->name, 0, 1)) }}</span>
-                        <p><b>{{ $line->product->name }}</b><small>{{ $line->quantity }} × R$ {{ number_format($line->unitPrice, 2, ',', '.') }}
+                        <p><b>{{ $line->product->name }}</b><small>@if($line->configurationSnapshot){{ $line->configurationSnapshot['size_label'] }} · {{ $line->configurationSnapshot['width_cm'] }} × {{ $line->configurationSnapshot['height_cm'] }} cm<br>@endif{{ $line->quantity }} × R$ {{ number_format($line->unitPrice, 2, ',', '.') }}
                             @if($line->personalization)<br>{{ $line->personalization }}@endif
-                        </small>@if($line->unitPrice < (float) $line->product->base_price)<small class="tier-applied">Preço {{ $storeCustomer?->customer_group === 'reseller' ? 'revendedor' : 'atacado' }} ativado · economia de R$ {{ number_format(((float) $line->product->base_price - $line->unitPrice) * $line->quantity, 2, ',', '.') }}</small>@endif</p>
+                        </small>@if(! $line->configurationSnapshot && $line->unitPrice < (float) $line->product->base_price)<small class="tier-applied">Preço {{ $storeCustomer?->customer_group === 'reseller' ? 'revendedor' : 'atacado' }} ativado · economia de R$ {{ number_format(((float) $line->product->base_price - $line->unitPrice) * $line->quantity, 2, ',', '.') }}</small>@endif</p>
                         <strong>R$ {{ number_format($line->total, 2, ',', '.') }}</strong>
                         <form method="POST" action="{{ route('loja.remove', $line->key) }}">@csrf<button>Remover</button></form>
                     </div>

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\DisplayConfigurator;
 use App\Models\FinanceEntry;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\StoreSetting;
 use App\Models\User;
 use App\Services\CustomerNotificationService;
+use App\Services\DisplayPricingService;
 use App\Services\StorePricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,10 +20,13 @@ use Illuminate\View\View;
 
 class StoreController extends Controller
 {
-    public function __construct(private readonly CustomerNotificationService $notifications, private readonly StorePricingService $pricing) {}
+    public function __construct(private readonly CustomerNotificationService $notifications, private readonly StorePricingService $pricing, private readonly DisplayPricingService $displayPricing) {}
 
     public function index(Request $request): View
     {
+        $displayConfigurator = $this->availableDisplayConfigurator();
+        $firstDisplaySize = $displayConfigurator?->sizes->where('active', true)->sortBy('width_cm')->first();
+        $displayStartingPrice = $firstDisplaySize ? $this->displayPricing->quote($displayConfigurator, $firstDisplaySize, 1)['unit_price'] : null;
         $intent = $request->query('uso');
         $intent = is_string($intent) && in_array($intent, ['presente', 'decoracao', 'empresa', 'personalizavel', 'pronta-entrega'], true) ? $intent : null;
         $search = $request->query('busca');
@@ -30,6 +35,10 @@ class StoreController extends Controller
         $sort = is_string($sort) && in_array($sort, ['destaques', 'recentes', 'menor-preco', 'maior-preco'], true) ? $sort : 'destaques';
 
         $available = Product::query()->where('active', true)->where('store_visible', true);
+        $linkedDisplayProductId = DisplayConfigurator::query()->value('product_id');
+        if ($linkedDisplayProductId && ! $displayConfigurator) {
+            $available->whereKeyNot($linkedDisplayProductId);
+        }
         $products = clone $available;
         if (in_array($intent, ['presente', 'decoracao', 'empresa'], true)) {
             $products->whereJsonContains('store_occasions', $intent);
@@ -47,6 +56,9 @@ class StoreController extends Controller
             'wholesale' => 'COALESCE(wholesale_price, base_price)',
             default => 'base_price',
         };
+        if ($displayConfigurator && $displayStartingPrice !== null) {
+            $priceColumn = 'CASE WHEN id = '.(int) $displayConfigurator->product_id.' THEN '.number_format($displayStartingPrice, 2, '.', '').' ELSE '.$priceColumn.' END';
+        }
         match ($sort) {
             'recentes' => $products->latest(),
             'menor-preco' => $products->orderByRaw($priceColumn.' ASC')->orderBy('name'),
@@ -60,12 +72,18 @@ class StoreController extends Controller
             'featured' => (clone $available)->where('store_featured', true)->orderBy('name')->limit(3)->get(),
             'intent' => $intent, 'search' => $search, 'sort' => $sort,
             'cartCount' => $this->cartCount(), 'pricing' => $this->pricing, 'storeCustomer' => $this->customer(),
+            'displayConfigurator' => $displayConfigurator, 'displayStartingPrice' => $displayStartingPrice,
         ]);
     }
 
-    public function product(Product $produto): View
+    public function product(Product $produto): View|RedirectResponse
     {
         abort_unless($produto->active && $produto->store_visible, 404);
+        if (DisplayConfigurator::query()->where('product_id', $produto->id)->exists()) {
+            abort_unless($this->availableDisplayConfigurator(), 404);
+
+            return redirect()->route('loja.display.show');
+        }
         $produto->load('images');
         $images = collect([$produto->image_url])
             ->filter()
@@ -74,6 +92,9 @@ class StoreController extends Controller
             ->values();
 
         $related = Product::query()->where('active', true)->where('store_visible', true)->whereKeyNot($produto->id);
+        if ($linkedDisplayProductId = DisplayConfigurator::query()->value('product_id')) {
+            $related->whereKeyNot($linkedDisplayProductId);
+        }
         if ($produto->store_occasions) {
             $occasions = $produto->store_occasions;
             $related->where(function ($query) use ($occasions): void {
@@ -85,8 +106,11 @@ class StoreController extends Controller
         $suggestions = $related->orderByDesc('store_featured')->orderBy('name')->limit(3)->get();
         if ($suggestions->count() < 3) {
             $remaining = Product::query()->where('active', true)->where('store_visible', true)
-                ->whereNotIn('id', $suggestions->pluck('id')->push($produto->id))
-                ->orderByDesc('store_featured')->orderBy('name')->limit(3 - $suggestions->count())->get();
+                ->whereNotIn('id', $suggestions->pluck('id')->push($produto->id));
+            if ($linkedDisplayProductId) {
+                $remaining->whereKeyNot($linkedDisplayProductId);
+            }
+            $remaining = $remaining->orderByDesc('store_featured')->orderBy('name')->limit(3 - $suggestions->count())->get();
             $suggestions = $suggestions->concat($remaining);
         }
 
@@ -101,6 +125,11 @@ class StoreController extends Controller
     public function add(Request $request, Product $produto): RedirectResponse
     {
         abort_unless($produto->active && $produto->store_visible, 404);
+        if (DisplayConfigurator::query()->where('product_id', $produto->id)->exists()) {
+            abort_unless($this->availableDisplayConfigurator(), 404);
+
+            return redirect()->route('loja.display.show')->withErrors(['display' => 'Escolha o tamanho do display para ver o preço.']);
+        }
         $data = $request->validate(['quantity' => ['required', 'integer', 'min:1', 'max:100'], 'personalization' => ['nullable', 'string', 'max:500']]);
         $cart = session('store_cart', []);
         $key = $produto->id.'|'.($data['personalization'] ?? '');
@@ -162,7 +191,7 @@ class StoreController extends Controller
             $deposit = round($total * ((float) $settings->deposit_percent / 100), 2);
             $order = Order::create(['number' => sprintf('PED-%s-%04d', now()->format('Y'), Order::count() + 1), 'customer_id' => $customer->id, 'created_by' => User::where('active', true)->value('id') ?? 1, 'status' => 'awaiting_deposit', 'source' => 'ecommerce', 'delivery_method' => $data['delivery_method'], 'postal_code' => $data['postal_code'] ?? null, 'street' => $data['street'] ?? null, 'street_number' => $data['street_number'] ?? null, 'complement' => $data['complement'] ?? null, 'neighborhood' => $data['neighborhood'] ?? null, 'delivery_city' => $data['delivery_city'] ?? null, 'delivery_state' => isset($data['delivery_state']) ? strtoupper($data['delivery_state']) : null, 'total' => $total, 'cost_total' => $cost, 'deposit_amount' => $deposit, 'notes' => $data['notes'] ?? null]);
             foreach ($lines as $line) {
-                $order->items()->create(['product_id' => $line->product->id, 'description' => $line->product->name.($line->personalization ? ' · Personalização: '.$line->personalization : ''), 'type' => $line->product->type, 'quantity' => $line->quantity, 'unit_price' => $line->unitPrice, 'unit_cost' => $line->product->production_cost, 'total' => $line->total, 'total_cost' => $line->cost, 'made_to_order' => $line->product->made_to_order]);
+                $order->items()->create(['product_id' => $line->product->id, 'description' => $line->product->name.($line->configurationSnapshot ? ' · '.$line->configurationSnapshot['size_label'].' ('.$line->configurationSnapshot['width_cm'].' × '.$line->configurationSnapshot['height_cm'].' cm)' : '').($line->personalization ? ' · Personalização: '.$line->personalization : ''), 'type' => $line->product->type, 'quantity' => $line->quantity, 'unit_price' => $line->unitPrice, 'unit_cost' => $line->unitCost, 'total' => $line->total, 'total_cost' => $line->cost, 'made_to_order' => $line->product->made_to_order, 'configuration_snapshot' => $line->configurationSnapshot]);
             }
             $payment = $order->payments()->create(['type' => 'deposit', 'status' => 'pending', 'amount' => $deposit, 'due_date' => now()->toDateString()]);
             FinanceEntry::create(['type' => 'receivable', 'source_type' => 'payment', 'source_id' => $payment->id, 'description' => 'Entrada do pedido '.$order->number, 'counterparty' => $customer->name, 'due_date' => now()->toDateString(), 'amount' => $deposit]);
@@ -205,19 +234,32 @@ class StoreController extends Controller
     private function lines()
     {
         $cart = session('store_cart', []);
+        $displayProductId = DisplayConfigurator::query()->value('product_id');
+        $storeCustomer = $this->customer()?->fresh();
         $products = Product::whereIn('id', collect($cart)->pluck('product_id'))->get()->keyBy('id');
         $quantities = collect($cart)->groupBy('product_id')->map(fn ($items) => $items->sum('quantity'));
 
-        return collect($cart)->map(function ($item, $key) use ($products, $quantities) {
+        return collect($cart)->map(function ($item, $key) use ($products, $quantities, $displayProductId, $storeCustomer) {
             $product = $products->get($item['product_id']);
             if (! $product || ! $product->active || ! $product->store_visible) {
                 return null;
             }
+            if ($product->id === $displayProductId && ($item['kind'] ?? null) !== 'display') {
+                return null;
+            }
+            if (($item['kind'] ?? null) === 'display' && in_array($item['configuration_snapshot']['customer_group'] ?? 'final', ['reseller', 'wholesale'], true)) {
+                $group = $item['configuration_snapshot']['customer_group'];
+                if (($item['customer_id'] ?? null) !== $storeCustomer?->id || ($group === 'reseller' && ! $storeCustomer?->hasResellerPricing()) || ($group === 'wholesale' && $storeCustomer?->customer_group !== 'wholesale')) {
+                    return null;
+                }
+            }
 
             $quantity = (int) $item['quantity'];
-            $unitPrice = $this->pricing->unitPrice($product, $this->customer(), (int) $quantities->get($product->id));
+            $isDisplay = ($item['kind'] ?? null) === 'display';
+            $unitPrice = $isDisplay ? (float) $item['unit_price'] : $this->pricing->unitPrice($product, $this->customer(), (int) $quantities->get($product->id));
+            $unitCost = $isDisplay ? (float) $item['unit_cost'] : (float) $product->production_cost;
 
-            return (object) ['key' => $key, 'product' => $product, 'quantity' => $quantity, 'personalization' => $item['personalization'], 'unitPrice' => $unitPrice, 'total' => $unitPrice * $quantity, 'cost' => (float) $product->production_cost * $quantity];
+            return (object) ['key' => $key, 'product' => $product, 'quantity' => $quantity, 'personalization' => $item['personalization'], 'unitPrice' => $unitPrice, 'unitCost' => $unitCost, 'total' => $unitPrice * $quantity, 'cost' => $unitCost * $quantity, 'configurationSnapshot' => $isDisplay ? $item['configuration_snapshot'] : null];
         })->filter()->values();
     }
 
@@ -231,5 +273,12 @@ class StoreController extends Controller
         $customer = Auth::guard('customer')->user();
 
         return $customer?->active ? $customer : null;
+    }
+
+    private function availableDisplayConfigurator(): ?DisplayConfigurator
+    {
+        $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine', 'sizes'])->where('enabled', true)->first();
+
+        return $configurator && $this->displayPricing->missingRequirements($configurator) === [] ? $configurator : null;
     }
 }

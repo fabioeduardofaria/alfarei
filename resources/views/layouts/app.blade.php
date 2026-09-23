@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="{{ asset('css/brand.css') }}?v={{ filemtime(public_path('css/brand.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/finance.css') }}?v={{ filemtime(public_path('css/finance.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/resellers.css') }}?v={{ filemtime(public_path('css/resellers.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/display-configurator.css') }}?v={{ filemtime(public_path('css/display-configurator.css')) }}">
 </head>
 <body>
 <div class="shell">
@@ -38,6 +39,7 @@
             @if(auth()->user()->canAccess('purchases'))<a class="{{ request()->routeIs('compras.*') ? 'active' : '' }}" href="{{ route('compras.index') }}">▤ <span>Compras</span></a>@endif
             @if(auth()->user()->canAccess('finance'))<a class="{{ request()->routeIs('financeiro.*') ? 'active' : '' }}" href="{{ route('financeiro.index') }}">▤ <span>Financeiro</span></a>@endif
             @if(auth()->user()->canAccess('store_settings'))<a class="{{ request()->routeIs('loja.settings.*') ? 'active' : '' }}" href="{{ route('loja.settings.edit') }}">◉ <span>Configurar loja</span></a>@endif
+            @if(auth()->user()->canAccess('store_settings'))<a class="{{ request()->routeIs('displays.config.*') ? 'active' : '' }}" href="{{ route('displays.config.edit') }}">▤ <span>Configurador de displays</span></a>@endif
             @if(auth()->user()->canAccess('users'))<a class="{{ request()->routeIs('usuarios.*') ? 'active' : '' }}" href="{{ route('usuarios.index') }}">♙ <span>Usuários e acessos</span></a>@endif
         </nav>
         <div class="user-panel"><div class="user-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div><div><a href="{{ route('perfil.edit') }}"><b>{{ auth()->user()->name }}</b><small>Minha conta</small></a></div><form method="POST" action="{{ route('logout') }}">@csrf<button title="Sair">↪</button></form></div>
