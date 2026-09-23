@@ -161,25 +161,30 @@ class DisplayConfiguratorTest extends TestCase
             'customer_id' => $customer->id, 'valid_until' => today()->addWeek()->toDateString(), 'discount' => 0,
             'items' => [[
                 'kind' => 'display', 'width_cm' => 30, 'height_cm' => 40, 'quantity' => 10,
+                'reference' => '  Turma   da Mônica  ',
                 'description' => 'Preço adulterado', 'unit_price' => 0.01, 'unit_cost' => 0.01,
             ]],
         ])->assertRedirect();
         $quote = Quote::firstOrFail();
         $item = $quote->items()->firstOrFail();
         $this->assertSame('display', $item->type);
-        $this->assertSame('Display personalizado · 30 × 40 cm', $item->description);
+        $this->assertSame('Display adesivado Turma da Mônica · 30 × 40 cm', $item->description);
         $this->assertEquals(27.35, $item->unit_price);
         $this->assertEquals(19.14, $item->unit_cost);
         $this->assertEquals(30, $item->configuration_snapshot['width_cm']);
+        $this->assertSame('Turma da Mônica', $item->configuration_snapshot['reference']);
+        $this->get("/orcamentos/{$quote->id}/edit")->assertOk()->assertSee('Turma da Mônica');
         $this->post("/orcamentos/{$quote->id}/enviar")->assertRedirect();
         $quote->refresh();
-        $this->get('/proposta/'.$quote->approval_token)->assertOk()->assertSee('30 × 40 cm');
+        $this->get('/proposta/'.$quote->approval_token)->assertOk()->assertSee('Display adesivado Turma da Mônica');
         $this->post('/proposta/'.$quote->approval_token.'/resposta', ['decision' => 'approved', 'response' => 'Aprovado.'])->assertRedirect();
         $this->post("/orcamentos/{$quote->id}/converter-em-pedido")->assertRedirect();
         $this->assertEquals(30, OrderItem::firstOrFail()->configuration_snapshot['width_cm']);
+        $this->assertSame('Turma da Mônica', OrderItem::firstOrFail()->configuration_snapshot['reference']);
         $this->post("/orcamentos/{$quote->id}/nova-versao")->assertRedirect();
         $revision = Quote::where('parent_quote_id', $quote->id)->firstOrFail();
         $this->assertEquals(30, $revision->items()->firstOrFail()->configuration_snapshot['width_cm']);
+        $this->assertSame('Turma da Mônica', $revision->items()->firstOrFail()->configuration_snapshot['reference']);
     }
 
     public function test_admin_display_quote_rejects_dimensions_above_configured_limit(): void
@@ -190,8 +195,20 @@ class DisplayConfiguratorTest extends TestCase
         $this->actingAs($admin)->postJson('/orcamentos/display/preco', ['width_cm' => 80.1, 'height_cm' => 40, 'quantity' => 1])->assertUnprocessable();
         $this->post('/orcamentos', [
             'customer_id' => $customer->id, 'discount' => 0,
-            'items' => [['kind' => 'display', 'width_cm' => 80.1, 'height_cm' => 40, 'quantity' => 1]],
+            'items' => [['kind' => 'display', 'reference' => 'Tema teste', 'width_cm' => 80.1, 'height_cm' => 40, 'quantity' => 1]],
         ])->assertSessionHasErrors('display');
+        $this->assertDatabaseCount('quotes', 0);
+    }
+
+    public function test_admin_display_quote_requires_a_reference(): void
+    {
+        $this->configuredDisplay();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Referência', 'customer_group' => 'final', 'active' => true]);
+        $this->actingAs($admin)->post('/orcamentos', [
+            'customer_id' => $customer->id, 'discount' => 0,
+            'items' => [['kind' => 'display', 'width_cm' => 30, 'height_cm' => 40, 'quantity' => 1]],
+        ])->assertSessionHasErrors('items.0.reference');
         $this->assertDatabaseCount('quotes', 0);
     }
 

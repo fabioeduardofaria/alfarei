@@ -74,6 +74,7 @@
         row.querySelector('.item-quantity').max = kind === 'display' ? '100' : '';
         row.querySelector('.display-width').required = kind === 'display';
         row.querySelector('.display-height').required = kind === 'display';
+        row.querySelector('.display-reference').required = kind === 'display';
         if (kind !== 'product') row.querySelector('.product-select').value = '';
         if (kind === 'display') previewDisplay(row);
         refresh();

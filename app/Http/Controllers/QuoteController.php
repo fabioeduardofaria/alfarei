@@ -221,6 +221,7 @@ class QuoteController extends Controller
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0'], 'items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
             'items.*.width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
             'items.*.height_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
+            'items.*.reference' => ['nullable', 'string', 'max:100'],
         ]);
     }
 
@@ -231,6 +232,10 @@ class QuoteController extends Controller
         foreach ($data['items'] as $index => &$item) {
             if (($item['kind'] ?? null) === 'display') {
                 $configurator ??= $this->displayConfigurator();
+                $reference = preg_replace('/\s+/u', ' ', trim($item['reference'] ?? ''));
+                if ($reference === '') {
+                    throw ValidationException::withMessages(["items.$index.reference" => 'Informe a referência ou o tema do display.']);
+                }
                 if (! isset($item['width_cm'], $item['height_cm']) || (float) $item['quantity'] != (int) $item['quantity'] || (int) $item['quantity'] > 100) {
                     throw ValidationException::withMessages(["items.$index.width_cm" => 'Informe medidas válidas e uma quantidade de 1 a 100 displays.']);
                 }
@@ -238,9 +243,10 @@ class QuoteController extends Controller
                 $height = (float) $item['height_cm'];
                 $this->validateDisplayDimensions($configurator, $width, $height);
                 $price = $this->displayPricing->quote($configurator, $width, $height, (int) $item['quantity'], $customer);
+                $price['reference'] = $reference;
                 $item = array_merge($item, [
                     'product_id' => $configurator->product_id,
-                    'description' => $configurator->product->name.' · '.$price['size_label'],
+                    'description' => 'Display adesivado '.$reference.' · '.$price['size_label'],
                     'unit_price' => $price['unit_price'], 'unit_cost' => $price['unit_cost'],
                     'type' => 'display', 'configuration_snapshot' => $price,
                 ]);

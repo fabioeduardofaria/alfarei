@@ -2,6 +2,7 @@
 .quote-item-heading{grid-template-columns:1fr 1fr 1.3fr}
 .quote-display-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;padding:14px;background:#f4f8f4;border:1px solid #dce7dc;border-radius:6px}
 .quote-display-fields p{grid-column:1/-1;font-size:10px;line-height:1.5;color:#5d6f61;margin:0}
+.quote-display-reference{grid-column:1/-1}
 .quote-display-status{font-size:10px;color:#5d6f61;margin:9px 0 0}
 .quote-item .item-price[readonly],.quote-item .item-cost[readonly]{background:#f4f8f4;color:#344f3f}
 @media(max-width:700px){.quote-item-heading{grid-template-columns:1fr}.quote-display-fields{grid-template-columns:1fr}}
