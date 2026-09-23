@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductionOrder;
+use App\Models\Quote;
 use App\Models\StoreSetting;
 use App\Models\User;
 use App\Services\DisplayPricingService;
@@ -147,6 +148,51 @@ class DisplayConfiguratorTest extends TestCase
         $response = $this->postJson('/loja/display/preco', ['width_cm' => 70, 'height_cm' => 80, 'quantity' => 1])->assertOk();
         $configurator->update(['max_width_cm' => 60]);
         $this->post('/loja/display/carrinho', ['quote_token' => $response->json('token')])->assertSessionHasErrors('quote_token');
+    }
+
+    public function test_admin_display_selector_prices_quote_on_server_and_preserves_dimensions_in_public_proposal(): void
+    {
+        $this->configuredDisplay();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Display', 'email' => 'display-cotacao@teste.com', 'customer_group' => 'final', 'active' => true]);
+        $this->actingAs($admin)->get('/orcamentos/create')->assertOk()->assertSee('Display adesivado sob medida');
+        $this->postJson('/orcamentos/display/preco', ['width_cm' => 30, 'height_cm' => 40, 'quantity' => 10, 'customer_id' => $customer->id])->assertOk()->assertJsonPath('unit_price', 27.35);
+        $this->post('/orcamentos', [
+            'customer_id' => $customer->id, 'valid_until' => today()->addWeek()->toDateString(), 'discount' => 0,
+            'items' => [[
+                'kind' => 'display', 'width_cm' => 30, 'height_cm' => 40, 'quantity' => 10,
+                'description' => 'Preço adulterado', 'unit_price' => 0.01, 'unit_cost' => 0.01,
+            ]],
+        ])->assertRedirect();
+        $quote = Quote::firstOrFail();
+        $item = $quote->items()->firstOrFail();
+        $this->assertSame('display', $item->type);
+        $this->assertSame('Display personalizado · 30 × 40 cm', $item->description);
+        $this->assertEquals(27.35, $item->unit_price);
+        $this->assertEquals(19.14, $item->unit_cost);
+        $this->assertEquals(30, $item->configuration_snapshot['width_cm']);
+        $this->post("/orcamentos/{$quote->id}/enviar")->assertRedirect();
+        $quote->refresh();
+        $this->get('/proposta/'.$quote->approval_token)->assertOk()->assertSee('30 × 40 cm');
+        $this->post('/proposta/'.$quote->approval_token.'/resposta', ['decision' => 'approved', 'response' => 'Aprovado.'])->assertRedirect();
+        $this->post("/orcamentos/{$quote->id}/converter-em-pedido")->assertRedirect();
+        $this->assertEquals(30, OrderItem::firstOrFail()->configuration_snapshot['width_cm']);
+        $this->post("/orcamentos/{$quote->id}/nova-versao")->assertRedirect();
+        $revision = Quote::where('parent_quote_id', $quote->id)->firstOrFail();
+        $this->assertEquals(30, $revision->items()->firstOrFail()->configuration_snapshot['width_cm']);
+    }
+
+    public function test_admin_display_quote_rejects_dimensions_above_configured_limit(): void
+    {
+        $this->configuredDisplay();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Limite', 'customer_group' => 'final', 'active' => true]);
+        $this->actingAs($admin)->postJson('/orcamentos/display/preco', ['width_cm' => 80.1, 'height_cm' => 40, 'quantity' => 1])->assertUnprocessable();
+        $this->post('/orcamentos', [
+            'customer_id' => $customer->id, 'discount' => 0,
+            'items' => [['kind' => 'display', 'width_cm' => 80.1, 'height_cm' => 40, 'quantity' => 1]],
+        ])->assertSessionHasErrors('display');
+        $this->assertDatabaseCount('quotes', 0);
     }
 
     private function settingsData(array $override = []): array

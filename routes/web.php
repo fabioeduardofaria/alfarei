@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('produtos/{produto}/fotos/{foto}', [ProductController::class, 'destroyImage'])->middleware('access:products')->name('produtos.images.destroy');
     Route::get('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'edit'])->middleware('access:products')->name('produtos.technical-sheet.edit');
     Route::put('produtos/{produto}/ficha-tecnica', [TechnicalSheetController::class, 'update'])->middleware('access:products')->name('produtos.technical-sheet.update');
+    Route::post('orcamentos/display/preco', [QuoteController::class, 'displayPrice'])->middleware('access:quotes')->name('orcamentos.display.price');
     Route::resource('orcamentos', QuoteController::class)->except('show', 'destroy')->middleware('access:quotes');
     Route::post('orcamentos/{orcamento}/nova-versao', [QuoteController::class, 'createRevision'])->middleware('access:quotes')->name('orcamentos.revision');
     Route::post('orcamentos/{orcamento}/enviar', [QuoteController::class, 'send'])->middleware('access:quotes')->name('orcamentos.send');

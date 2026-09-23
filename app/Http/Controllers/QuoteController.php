@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\DisplayConfigurator;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\QuoteAttachment;
+use App\Services\DisplayPricingService;
 use App\Services\QuotePricingService;
 use App\Services\QuoteToOrderService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +21,23 @@ use Illuminate\View\View;
 
 class QuoteController extends Controller
 {
-    public function __construct(private readonly QuotePricingService $pricing, private readonly QuoteToOrderService $orderService) {}
+    public function __construct(private readonly QuotePricingService $pricing, private readonly QuoteToOrderService $orderService, private readonly DisplayPricingService $displayPricing) {}
+
+    public function displayPrice(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'width_cm' => ['required', 'numeric', 'min:1', 'decimal:0,1'],
+            'height_cm' => ['required', 'numeric', 'min:1', 'decimal:0,1'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:100'],
+            'customer_id' => ['nullable', 'exists:customers,id'],
+        ]);
+        $configurator = $this->displayConfigurator();
+        $this->validateDisplayDimensions($configurator, (float) $data['width_cm'], (float) $data['height_cm']);
+        $customer = isset($data['customer_id']) ? Customer::find($data['customer_id']) : null;
+        $quote = $this->displayPricing->quote($configurator, (float) $data['width_cm'], (float) $data['height_cm'], (int) $data['quantity'], $customer);
+
+        return response()->json(['unit_price' => $quote['unit_price'], 'unit_cost' => $quote['unit_cost'], 'total' => $quote['total'], 'size_label' => $quote['size_label']]);
+    }
 
     public function index(Request $request): View
     {
@@ -132,7 +151,7 @@ class QuoteController extends Controller
                 'number' => $rootNumber.'-V'.$nextVersion, 'parent_quote_id' => $orcamento->parent_quote_id ?: $orcamento->id,
                 'created_by' => $request->user()->id, 'version' => $nextVersion, 'status' => 'draft',
             ]);
-            $revision->items()->createMany($orcamento->items->map(fn ($item) => $item->only(['product_id', 'description', 'type', 'quantity', 'unit_price', 'unit_cost', 'total', 'total_cost']))->all());
+            $revision->items()->createMany($orcamento->items->map(fn ($item) => $item->only(['product_id', 'description', 'type', 'quantity', 'unit_price', 'unit_cost', 'total', 'total_cost', 'configuration_snapshot']))->all());
             foreach ($orcamento->attachments->where('approved', true) as $attachment) {
                 if (! Storage::disk('public')->exists($attachment->path)) {
                     continue;
@@ -153,7 +172,9 @@ class QuoteController extends Controller
 
     private function form(Quote $quote): View
     {
-        return view('quotes.form', ['quote' => $quote, 'customers' => Customer::where('active', true)->orderBy('name')->get(), 'products' => Product::where('active', true)->orderBy('name')->get()]);
+        $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine'])->first();
+
+        return view('quotes.form', ['quote' => $quote, 'customers' => Customer::where('active', true)->orderBy('name')->get(), 'products' => Product::where('active', true)->orderBy('name')->get(), 'displayConfigurator' => $configurator && $this->displayPricing->missingRequirements($configurator) === [] ? $configurator : null]);
     }
 
     public function storeAttachment(Request $request, Quote $orcamento): RedirectResponse
@@ -195,14 +216,57 @@ class QuoteController extends Controller
         return $request->validate([
             'customer_id' => ['required', 'exists:customers,id'], 'status' => ['nullable', 'in:draft'],
             'valid_until' => ['nullable', 'date'], 'discount' => ['required', 'numeric', 'min:0'], 'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'tax_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'commission_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'], 'target_margin_percent' => ['nullable', 'numeric', 'min:0', 'max:99.99'], 'notes' => ['nullable', 'string', 'max:3000'], 'payment_terms' => ['nullable', 'string', 'max:3000'], 'production_lead_days' => ['nullable', 'integer', 'min:0', 'max:365'], 'delivery_lead_days' => ['nullable', 'integer', 'min:0', 'max:365'], 'deposit_percent' => ['required', 'numeric', 'min:0', 'max:100'],
-            'items' => ['required', 'array', 'min:1'], 'items.*.product_id' => ['nullable', 'exists:products,id'],
-            'items.*.description' => ['required', 'string', 'max:200'], 'items.*.quantity' => ['required', 'numeric', 'gt:0'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0'], 'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
+            'items' => ['required', 'array', 'min:1'], 'items.*.kind' => ['nullable', 'in:custom,product,display'], 'items.*.product_id' => ['nullable', 'exists:products,id'],
+            'items.*.description' => ['nullable', 'string', 'max:200'], 'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0'], 'items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'items.*.width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
+            'items.*.height_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
         ]);
     }
 
     private function calculate(array $data): array
     {
+        $configurator = null;
+        $customer = Customer::find($data['customer_id']);
+        foreach ($data['items'] as $index => &$item) {
+            if (($item['kind'] ?? null) === 'display') {
+                $configurator ??= $this->displayConfigurator();
+                if (! isset($item['width_cm'], $item['height_cm']) || (float) $item['quantity'] != (int) $item['quantity'] || (int) $item['quantity'] > 100) {
+                    throw ValidationException::withMessages(["items.$index.width_cm" => 'Informe medidas válidas e uma quantidade de 1 a 100 displays.']);
+                }
+                $width = (float) $item['width_cm'];
+                $height = (float) $item['height_cm'];
+                $this->validateDisplayDimensions($configurator, $width, $height);
+                $price = $this->displayPricing->quote($configurator, $width, $height, (int) $item['quantity'], $customer);
+                $item = array_merge($item, [
+                    'product_id' => $configurator->product_id,
+                    'description' => $configurator->product->name.' · '.$price['size_label'],
+                    'unit_price' => $price['unit_price'], 'unit_cost' => $price['unit_cost'],
+                    'type' => 'display', 'configuration_snapshot' => $price,
+                ]);
+            } elseif (! isset($item['description'], $item['unit_price'], $item['unit_cost']) || trim($item['description']) === '' || (($item['kind'] ?? null) === 'product' && empty($item['product_id']))) {
+                throw ValidationException::withMessages(["items.$index.description" => 'Complete a descrição, o produto e os valores deste item.']);
+            }
+        }
+        unset($item);
+
         return $this->pricing->calculate($data['items'], (float) $data['discount'], (float) ($data['discount_percent'] ?? 0), (float) ($data['tax_percent'] ?? 0), (float) ($data['commission_percent'] ?? 0), (float) ($data['fee_percent'] ?? 0), (float) ($data['target_margin_percent'] ?? 20));
+    }
+
+    private function displayConfigurator(): DisplayConfigurator
+    {
+        $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine'])->first();
+        if (! $configurator || $this->displayPricing->missingRequirements($configurator) !== []) {
+            throw ValidationException::withMessages(['display' => 'Complete o Configurador de displays antes de orçar este item.']);
+        }
+
+        return $configurator;
+    }
+
+    private function validateDisplayDimensions(DisplayConfigurator $configurator, float $width, float $height): void
+    {
+        if ($width > (float) $configurator->max_width_cm || $height > (float) $configurator->max_height_cm) {
+            throw ValidationException::withMessages(['display' => 'As medidas ultrapassam o limite configurado para displays.']);
+        }
     }
 }
