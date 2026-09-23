@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\DisplayConfigurator;
-use App\Models\DisplaySize;
 use App\Models\Material;
 use InvalidArgumentException;
 
@@ -12,7 +11,7 @@ class DisplayPricingService
 {
     public function missingRequirements(DisplayConfigurator $configurator): array
     {
-        $configurator->loadMissing(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine', 'sizes']);
+        $configurator->loadMissing(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine']);
         $missing = [];
         if (! $configurator->product?->active || ! $configurator->product?->store_visible || ! $configurator->product?->made_to_order) {
             $missing[] = 'Selecione um produto sob encomenda, ativo e visível na loja.';
@@ -27,18 +26,15 @@ class DisplayPricingService
         if (! $configurator->laserMachine?->active || $machineRate <= 0) {
             $missing[] = 'Selecione uma máquina laser ativa com custo-hora positivo.';
         }
-        if ($configurator->sizes->where('active', true)->isEmpty()) {
-            $missing[] = 'Cadastre e ative pelo menos um tamanho.';
-        }
-        if ($configurator->mdfMaterial && (float) $configurator->mdfMaterial->width_mm > 0 && (float) $configurator->mdfMaterial->height_mm > 0) {
+        if ((float) $configurator->max_width_cm <= 0 || (float) $configurator->max_height_cm <= 0) {
+            $missing[] = 'Defina a largura e a altura máximas permitidas.';
+        } elseif ($configurator->mdfMaterial && (float) $configurator->mdfMaterial->width_mm > 0 && (float) $configurator->mdfMaterial->height_mm > 0) {
             $sheetWidth = (float) $configurator->mdfMaterial->width_mm;
             $sheetHeight = (float) $configurator->mdfMaterial->height_mm;
-            foreach ($configurator->sizes->where('active', true) as $size) {
-                $width = (int) $size->width_cm * 10;
-                $height = (int) $size->height_cm * 10;
-                if (! (($width <= $sheetWidth && $height <= $sheetHeight) || ($height <= $sheetWidth && $width <= $sheetHeight))) {
-                    $missing[] = 'O tamanho '.$size->label.' não cabe na chapa de MDF selecionada.';
-                }
+            $width = (float) $configurator->max_width_cm * 10;
+            $height = (float) $configurator->max_height_cm * 10;
+            if (! (($width <= $sheetWidth && $height <= $sheetHeight) || ($height <= $sheetWidth && $width <= $sheetHeight))) {
+                $missing[] = 'As dimensões máximas não cabem na chapa de MDF selecionada.';
             }
         }
         if ((float) $configurator->selling_fee_percent + (float) $configurator->target_margin_percent >= 95) {
@@ -53,18 +49,21 @@ class DisplayPricingService
         return $missing;
     }
 
-    public function quote(DisplayConfigurator $configurator, DisplaySize $size, int $quantity, ?Customer $customer = null): array
+    public function quote(DisplayConfigurator $configurator, float $widthCm, float $heightCm, int $quantity, ?Customer $customer = null): array
     {
-        if ($quantity < 1 || $quantity > 100 || $size->display_configurator_id !== $configurator->id || ! $size->active || $this->missingRequirements($configurator) !== []) {
+        if ($quantity < 1 || $quantity > 100 || $this->missingRequirements($configurator) !== [] ||
+            $widthCm < 1 || $heightCm < 1 || $widthCm > (float) $configurator->max_width_cm ||
+            $heightCm > (float) $configurator->max_height_cm ||
+            round($widthCm, 1) !== $widthCm || round($heightCm, 1) !== $heightCm) {
             throw new InvalidArgumentException('O display não está disponível nesta configuração.');
         }
 
-        $areaM2 = ((int) $size->width_cm * (int) $size->height_cm) / 10000;
+        $areaM2 = ($widthCm * $heightCm) / 10000;
         $mdfQuantity = $this->materialAreaQuantity($configurator->mdfMaterial, $areaM2) * (1 + (float) $configurator->mdf_loss_percent / 100);
         $adhesiveQuantity = $this->materialAreaQuantity($configurator->adhesiveMaterial, $areaM2) * (1 + (float) $configurator->adhesive_loss_percent / 100);
         $mdf = $mdfQuantity * (float) $configurator->mdfMaterial->cost_per_unit;
         $adhesive = $adhesiveQuantity * (float) $configurator->adhesiveMaterial->cost_per_unit;
-        $laserMinutes = (float) ($size->laser_minutes_override ?? $configurator->laser_minutes_per_unit);
+        $laserMinutes = (float) $configurator->laser_minutes_per_unit;
         $laser = $this->machineRate($configurator) * ($laserMinutes / 60);
         $printing = $areaM2 * (float) $configurator->printing_cost_per_m2;
         $application = $areaM2 * (float) $configurator->application_cost_per_m2;
@@ -84,8 +83,8 @@ class DisplayPricingService
         $price = ceil(($cost / $denominator) * 100) / 100;
 
         return [
-            'size_id' => $size->id, 'size_label' => $size->label,
-            'width_cm' => $size->width_cm, 'height_cm' => $size->height_cm, 'laser_minutes' => $laserMinutes,
+            'size_label' => $this->formatDimension($widthCm).' × '.$this->formatDimension($heightCm).' cm',
+            'width_cm' => $widthCm, 'height_cm' => $heightCm, 'laser_minutes' => $laserMinutes,
             'quantity' => $quantity, 'unit_cost' => round($cost, 2),
             'unit_price' => $price, 'total' => round($price * $quantity, 2),
             'customer_group' => $group, 'margin_percent' => $margin,
@@ -95,6 +94,11 @@ class DisplayPricingService
             ],
             'breakdown' => array_map(fn ($value) => round($value, 2), compact('mdf', 'adhesive', 'laser', 'printing', 'application', 'base', 'assembly', 'packaging', 'setupPerUnit')),
         ];
+    }
+
+    private function formatDimension(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 1, ',', ''), '0'), ',');
     }
 
     private function validMaterial(?Material $material): bool

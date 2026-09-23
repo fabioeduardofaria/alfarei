@@ -25,8 +25,6 @@ class StoreController extends Controller
     public function index(Request $request): View
     {
         $displayConfigurator = $this->availableDisplayConfigurator();
-        $firstDisplaySize = $displayConfigurator?->sizes->where('active', true)->sortBy('width_cm')->first();
-        $displayStartingPrice = $firstDisplaySize ? $this->displayPricing->quote($displayConfigurator, $firstDisplaySize, 1)['unit_price'] : null;
         $intent = $request->query('uso');
         $intent = is_string($intent) && in_array($intent, ['presente', 'decoracao', 'empresa', 'personalizavel', 'pronta-entrega'], true) ? $intent : null;
         $search = $request->query('busca');
@@ -56,13 +54,11 @@ class StoreController extends Controller
             'wholesale' => 'COALESCE(wholesale_price, base_price)',
             default => 'base_price',
         };
-        if ($displayConfigurator && $displayStartingPrice !== null) {
-            $priceColumn = 'CASE WHEN id = '.(int) $displayConfigurator->product_id.' THEN '.number_format($displayStartingPrice, 2, '.', '').' ELSE '.$priceColumn.' END';
-        }
+        $displayLast = 'CASE WHEN id = '.(int) ($displayConfigurator?->product_id ?? 0).' THEN 1 ELSE 0 END';
         match ($sort) {
             'recentes' => $products->latest(),
-            'menor-preco' => $products->orderByRaw($priceColumn.' ASC')->orderBy('name'),
-            'maior-preco' => $products->orderByRaw($priceColumn.' DESC')->orderBy('name'),
+            'menor-preco' => $products->orderByRaw($displayLast.' ASC')->orderByRaw($priceColumn.' ASC')->orderBy('name'),
+            'maior-preco' => $products->orderByRaw($displayLast.' ASC')->orderByRaw($priceColumn.' DESC')->orderBy('name'),
             default => $products->orderByDesc('store_featured')->orderBy('name'),
         };
 
@@ -72,7 +68,7 @@ class StoreController extends Controller
             'featured' => (clone $available)->where('store_featured', true)->orderBy('name')->limit(3)->get(),
             'intent' => $intent, 'search' => $search, 'sort' => $sort,
             'cartCount' => $this->cartCount(), 'pricing' => $this->pricing, 'storeCustomer' => $this->customer(),
-            'displayConfigurator' => $displayConfigurator, 'displayStartingPrice' => $displayStartingPrice,
+            'displayConfigurator' => $displayConfigurator,
         ]);
     }
 
@@ -277,7 +273,7 @@ class StoreController extends Controller
 
     private function availableDisplayConfigurator(): ?DisplayConfigurator
     {
-        $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine', 'sizes'])->where('enabled', true)->first();
+        $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine'])->where('enabled', true)->first();
 
         return $configurator && $this->displayPricing->missingRequirements($configurator) === [] ? $configurator : null;
     }

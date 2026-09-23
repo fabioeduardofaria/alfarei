@@ -4,7 +4,7 @@
     <div>
         <p>{{ $product->made_to_order ? 'Sob encomenda' : 'Disponível' }}</p><h3>{{ $product->name }}</h3><small>{{ Str::limit($product->description, 82) }}</small>
         @if(isset($displayConfigurator) && $displayConfigurator?->product_id === $product->id)
-            <strong>A partir de R$ {{ number_format($displayStartingPrice, 2, ',', '.') }}</strong>
+            <strong>Sob medida · calcule o seu preço</strong>
         @elseif($offer['tier_price'] !== null)
             <span class="normal-price">Preço normal R$ {{ number_format($offer['base_price'], 2, ',', '.') }}</span>
             <strong class="tier-card-price">R$ {{ number_format($offer['tier_price'], 2, ',', '.') }} <small>/ un.</small></strong>

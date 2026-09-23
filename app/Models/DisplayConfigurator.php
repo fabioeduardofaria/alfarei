@@ -14,6 +14,7 @@ class DisplayConfigurator extends Model
         'printing_cost_per_m2', 'application_cost_per_m2', 'base_cost_per_unit', 'assembly_cost_per_unit',
         'packaging_cost_per_unit', 'artwork_setup_cost_per_order', 'selling_fee_percent',
         'target_margin_percent', 'enabled',
+        'max_width_cm', 'max_height_cm',
         'reseller_margin_percent', 'reseller_min_quantity', 'wholesale_margin_percent', 'wholesale_min_quantity',
     ];
 

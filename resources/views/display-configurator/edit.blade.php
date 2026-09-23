@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="heading">
-    <div><p class="eyebrow">E-COMMERCE · PREÇOS</p><h1>Configurador de displays</h1><p class="muted">Defina tamanhos e operações. MDF, adesivo e máquina usam os custos dos respectivos cadastros.</p></div>
+    <div><p class="eyebrow">E-COMMERCE · PREÇOS</p><h1>Configurador de displays</h1><p class="muted">Defina o limite das medidas e as operações. MDF, adesivo e máquina usam os custos dos respectivos cadastros.</p></div>
     <a class="secondary" href="{{ route('loja.settings.edit') }}">← Configurar loja</a>
 </div>
 
@@ -20,7 +20,13 @@
         <label>Máquina laser<select name="laser_machine_id"><option value="">Selecione</option>@foreach($machines as $machine)<option value="{{ $machine->id }}" @selected(old('laser_machine_id', $configurator->laser_machine_id) == $machine->id)>{{ $machine->name }} · R$ {{ number_format($machine->calculatedHourlyCost() ?: $machine->hourly_cost, 2, ',', '.') }}/h</option>@endforeach</select></label>
     </div>
 
-    <div class="display-section-title"><h2>2. Produção por display</h2><p>O cliente não escolhe dificuldade do contorno. Os 3 minutos cobrem o corte padrão.</p></div>
+    <div class="display-section-title"><h2>2. Limites de medida</h2><p>Você define apenas o máximo; cada display pode ter qualquer medida menor, em passos de 0,1 cm. O mesmo limite vale na loja e na simulação de orçamentos.</p></div>
+    <div class="display-fields">
+        <label>Largura máxima (cm)<input type="number" name="max_width_cm" value="{{ old('max_width_cm', $configurator->max_width_cm) }}" min="1" max="250" step="0.1" required></label>
+        <label>Altura máxima (cm)<input type="number" name="max_height_cm" value="{{ old('max_height_cm', $configurator->max_height_cm) }}" min="1" max="250" step="0.1" required></label>
+    </div>
+
+    <div class="display-section-title"><h2>3. Produção por display</h2><p>O cliente não escolhe dificuldade do contorno. Os 3 minutos cobrem o corte padrão e podem ser ajustados aqui.</p></div>
     <div class="display-fields display-fields-three">
         @foreach([
             'laser_minutes_per_unit' => ['Laser por unidade (min)', '0.01'],
@@ -37,7 +43,7 @@
         @endforeach
     </div>
 
-    <div class="display-section-title"><h2>3. Preço de venda</h2><p>Taxas e margem incidem sobre o preço final; a preparação da arte é dividida pela quantidade.</p></div>
+    <div class="display-section-title"><h2>4. Preço de venda</h2><p>Taxas e margem incidem sobre o preço final; a preparação da arte é dividida pela quantidade.</p></div>
     <div class="display-fields">
         <label>Taxas de venda (%)<input type="number" name="selling_fee_percent" value="{{ old('selling_fee_percent', $configurator->selling_fee_percent) }}" min="0" max="94" step="0.01" required></label>
         <label>Margem desejada (%)<input type="number" name="target_margin_percent" value="{{ old('target_margin_percent', $configurator->target_margin_percent) }}" min="0" max="94" step="0.01" required></label>
@@ -51,23 +57,18 @@
     <div class="form-actions"><button class="primary" type="submit">Salvar parâmetros →</button></div>
 </form>
 
-<section class="panel display-admin-form">
-    <div class="display-section-title"><h2>4. Tamanhos disponíveis</h2><p>Somente tamanhos ativos aparecem para o cliente.</p></div>
-    <div class="display-size-list">
-        @forelse($configurator->sizes->sortBy('width_cm') as $size)
-            <div><b>{{ $size->label }}</b><span>{{ $size->width_cm }} × {{ $size->height_cm }} cm</span><form class="display-size-minutes" method="POST" action="{{ route('displays.config.size.update', $size) }}">@csrf @method('PATCH')<label>Laser (min)<input type="number" name="laser_minutes_override" min="0.01" max="60" step="0.01" value="{{ $size->laser_minutes_override }}" placeholder="{{ $configurator->laser_minutes_per_unit }}"></label><button class="secondary" type="submit">Salvar</button></form><span class="status {{ $size->active ? 'on' : 'off' }}">{{ $size->active ? 'Ativo' : 'Inativo' }}</span><form method="POST" action="{{ route('displays.config.size.toggle', $size) }}">@csrf @method('PATCH')<button class="secondary" type="submit">{{ $size->active ? 'Desativar' : 'Ativar' }}</button></form></div>
-        @empty<p class="muted">Nenhum tamanho cadastrado.</p>@endforelse
-    </div>
-    <form class="display-size-form" method="POST" action="{{ route('displays.config.size.store') }}">@csrf
-        <label>Nome<input name="label" maxlength="80" placeholder="Ex.: Display 30 × 40 cm" required></label>
-        <label>Largura (cm)<input type="number" name="width_cm" min="1" max="250" required></label>
-        <label>Altura (cm)<input type="number" name="height_cm" min="1" max="250" required></label>
-        <label>Laser (min) <small>opcional</small><input type="number" name="laser_minutes_override" min="0.01" max="60" step="0.01" placeholder="Padrão"></label>
-        <button class="secondary" type="submit">+ Adicionar tamanho</button>
-    </form>
-</section>
-
 @if($missing === [])
-<section class="panel display-admin-form"><div class="display-section-title"><h2>Simulação de preços</h2><p>Confira valores para 1, 10 e 50 unidades antes de publicar.</p></div><div class="table-panel"><table><thead><tr><th>TAMANHO</th><th>QTD.</th><th>CUSTO/UN.</th><th>PREÇO/UN.</th><th>TOTAL</th></tr></thead><tbody>@foreach($configurator->sizes->where('active', true) as $size)@foreach([1, 10, 50] as $quantity)@php($quote = app(\App\Services\DisplayPricingService::class)->quote($configurator, $size, $quantity))<tr><td>{{ $size->label }}</td><td>{{ $quantity }}</td><td>R$ {{ number_format($quote['unit_cost'], 2, ',', '.') }}</td><td><b>R$ {{ number_format($quote['unit_price'], 2, ',', '.') }}</b></td><td>R$ {{ number_format($quote['total'], 2, ',', '.') }}</td></tr>@endforeach @endforeach</tbody></table></div></section>
+<section class="panel display-admin-form">
+    <div class="display-section-title"><h2>Simular orçamento sob medida</h2><p>Informe as dimensões reais e a quantidade. O cálculo usa as mesmas regras da loja; depois, use o preço no orçamento comercial.</p></div>
+    <form class="display-fields display-simulation-form" method="POST" action="{{ route('displays.config.simulate') }}">@csrf
+        <label>Largura (cm)<input type="number" name="width_cm" value="{{ old('width_cm', $configurator->max_width_cm) }}" min="1" max="{{ $configurator->max_width_cm }}" step="0.1" required></label>
+        <label>Altura (cm)<input type="number" name="height_cm" value="{{ old('height_cm', $configurator->max_height_cm) }}" min="1" max="{{ $configurator->max_height_cm }}" step="0.1" required></label>
+        <label>Quantidade<input type="number" name="quantity" value="{{ old('quantity', 1) }}" min="1" max="100" required></label>
+        <button class="primary" type="submit">Calcular preço →</button>
+    </form>
+    @if($simulation = session('display_simulation'))
+        <div class="display-simulation-result"><b>{{ $simulation['size_label'] }} · {{ $simulation['quantity'] }} unidade(s)</b><span>Custo por unidade: R$ {{ number_format($simulation['unit_cost'], 2, ',', '.') }}</span><span>Preço por unidade: R$ {{ number_format($simulation['unit_price'], 2, ',', '.') }}</span><strong>Total: R$ {{ number_format($simulation['total'], 2, ',', '.') }}</strong></div>
+    @endif
+</section>
 @endif
 @endsection

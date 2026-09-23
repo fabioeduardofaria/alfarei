@@ -68,9 +68,7 @@ Route::middleware('auth')->group(function () {
     Route::put('administracao/loja', [StoreSettingsController::class, 'update'])->middleware('access:store_settings')->name('loja.settings.update');
     Route::get('administracao/displays', [DisplayConfiguratorController::class, 'edit'])->middleware('access:store_settings')->name('displays.config.edit');
     Route::put('administracao/displays', [DisplayConfiguratorController::class, 'update'])->middleware('access:store_settings')->name('displays.config.update');
-    Route::post('administracao/displays/tamanhos', [DisplayConfiguratorController::class, 'addSize'])->middleware('access:store_settings')->name('displays.config.size.store');
-    Route::patch('administracao/displays/tamanhos/{size}', [DisplayConfiguratorController::class, 'updateSize'])->middleware('access:store_settings')->name('displays.config.size.update');
-    Route::patch('administracao/displays/tamanhos/{size}/alternar', [DisplayConfiguratorController::class, 'toggleSize'])->middleware('access:store_settings')->name('displays.config.size.toggle');
+    Route::post('administracao/displays/simular', [DisplayConfiguratorController::class, 'simulate'])->middleware('access:store_settings')->name('displays.config.simulate');
     Route::resource('clientes', CustomerController::class)->except('show', 'destroy')->middleware('access:customers');
     Route::get('revendedores', [ResellerProgramController::class, 'index'])->middleware('access:customers')->name('revendedores.index');
     Route::get('revendedores/solicitacoes/{application}', [ResellerProgramController::class, 'show'])->middleware('access:customers')->name('revendedores.show');

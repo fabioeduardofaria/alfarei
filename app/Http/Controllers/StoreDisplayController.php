@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\DisplayConfigurator;
-use App\Models\DisplaySize;
 use App\Models\StoreSetting;
 use App\Services\DisplayPricingService;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class StoreDisplayController extends Controller
@@ -25,22 +25,23 @@ class StoreDisplayController extends Controller
             'settings' => StoreSetting::firstOrCreate([]),
             'cartCount' => collect(session('store_cart', []))->sum('quantity'),
             'configurator' => $configurator,
-            'sizes' => $configurator->sizes->where('active', true)->sortBy('width_cm'),
         ]);
     }
 
     public function preview(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'size_id' => ['required', 'integer', 'exists:display_sizes,id'],
+            'width_cm' => ['required', 'numeric', 'min:1', 'decimal:0,1'],
+            'height_cm' => ['required', 'numeric', 'min:1', 'decimal:0,1'],
             'quantity' => ['required', 'integer', 'min:1', 'max:100'],
         ]);
         $configurator = $this->availableConfigurator();
-        $size = DisplaySize::findOrFail($data['size_id']);
-        abort_unless($size->display_configurator_id === $configurator->id && $size->active, 404);
+        if ((float) $data['width_cm'] > (float) $configurator->max_width_cm || (float) $data['height_cm'] > (float) $configurator->max_height_cm) {
+            throw ValidationException::withMessages(['width_cm' => 'As medidas ultrapassam o limite permitido.']);
+        }
         $customer = Auth::guard('customer')->user();
         $customer = $customer?->active ? $customer : null;
-        $quote = $this->pricing->quote($configurator, $size, (int) $data['quantity'], $customer);
+        $quote = $this->pricing->quote($configurator, (float) $data['width_cm'], (float) $data['height_cm'], (int) $data['quantity'], $customer);
         $token = Str::random(40);
         $savedQuotes = collect(session('display_quotes', []))->filter(fn ($entry) => $entry['expires_at'] > now()->timestamp)->take(-19)->all();
         $savedQuotes[$token] = [
@@ -88,6 +89,10 @@ class StoreDisplayController extends Controller
         if ((int) $entry['product_id'] !== $configurator->product_id) {
             return back()->withErrors(['quote_token' => 'Esta configuração não está mais disponível.']);
         }
+        if ((float) $entry['quote']['width_cm'] > (float) $configurator->max_width_cm ||
+            (float) $entry['quote']['height_cm'] > (float) $configurator->max_height_cm) {
+            return back()->withErrors(['quote_token' => 'O limite de medidas mudou. Atualize o preço antes de adicionar.']);
+        }
 
         $cart = session('store_cart', []);
         $cart['display:'.Str::random(16)] = [
@@ -107,7 +112,7 @@ class StoreDisplayController extends Controller
 
     private function availableConfigurator(): DisplayConfigurator
     {
-        $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine', 'sizes'])->first();
+        $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine'])->first();
         abort_unless($configurator?->enabled && $this->pricing->missingRequirements($configurator) === [], 404);
 
         return $configurator;

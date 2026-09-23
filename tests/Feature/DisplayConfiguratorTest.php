@@ -31,18 +31,17 @@ class DisplayConfiguratorTest extends TestCase
         $this->get('/loja/display')->assertNotFound();
     }
 
-    public function test_price_uses_materials_machine_and_optional_laser_minutes_per_size(): void
+    public function test_price_uses_free_dimensions_materials_and_adjustable_laser_minutes(): void
     {
         $configurator = $this->configuredDisplay();
         $pricing = app(DisplayPricingService::class);
-        $size = $configurator->sizes()->firstOrFail();
-        $quote = $pricing->quote($configurator, $size, 10);
+        $quote = $pricing->quote($configurator, 30, 40, 10);
         $this->assertSame(3.0, $quote['laser_minutes']);
         $this->assertEqualsWithDelta(19.14, $quote['unit_cost'], 0.01);
         $this->assertEqualsWithDelta(27.35, $quote['unit_price'], 0.01);
 
-        $size->update(['laser_minutes_override' => 4]);
-        $quote = $pricing->quote($configurator->fresh(), $size->fresh(), 10);
+        $configurator->update(['laser_minutes_per_unit' => 4]);
+        $quote = $pricing->quote($configurator->fresh(), 30, 40, 10);
         $this->assertSame(4.0, $quote['laser_minutes']);
         $this->assertEqualsWithDelta(20.14, $quote['unit_cost'], 0.01);
     }
@@ -57,23 +56,24 @@ class DisplayConfiguratorTest extends TestCase
         $this->post('/loja/produto/'.$configurator->product_id.'/carrinho', ['quantity' => 1])->assertNotFound();
     }
 
-    public function test_admin_can_adjust_default_and_size_specific_laser_time_from_interface(): void
+    public function test_admin_can_set_maximum_dimensions_and_laser_time_from_interface(): void
     {
         $configurator = $this->configuredDisplay();
-        $size = $configurator->sizes()->firstOrFail();
         $admin = User::factory()->create(['role' => 'admin']);
-        $this->actingAs($admin)->get('/administracao/displays')->assertOk()->assertSee($size->label)->assertSee('Simulação de preços');
+        $this->actingAs($admin)->get('/administracao/displays')->assertOk()->assertSee('Limites de medida')->assertSee('Simular orçamento sob medida');
         $this->actingAs($admin)->put('/administracao/displays', $this->settingsData([
             'product_id' => $configurator->product_id,
             'mdf_material_id' => $configurator->mdf_material_id,
             'adhesive_material_id' => $configurator->adhesive_material_id,
             'laser_machine_id' => $configurator->laser_machine_id,
             'laser_minutes_per_unit' => 4,
+            'max_width_cm' => 60,
+            'max_height_cm' => 80,
             'enabled' => 1,
         ]))->assertRedirect();
         $this->assertEquals(4, $configurator->fresh()->laser_minutes_per_unit);
-        $this->actingAs($admin)->patch("/administracao/displays/tamanhos/{$size->id}", ['laser_minutes_override' => 5])->assertRedirect();
-        $this->assertEquals(5, $size->fresh()->laser_minutes_override);
+        $this->assertEquals(60, $configurator->fresh()->max_width_cm);
+        $this->actingAs($admin)->post('/administracao/displays/simular', ['width_cm' => 45.5, 'height_cm' => 52.3, 'quantity' => 10])->assertSessionHas('display_simulation');
         $this->get('/loja/display')->assertOk();
     }
 
@@ -81,13 +81,12 @@ class DisplayConfiguratorTest extends TestCase
     {
         $configurator = $this->configuredDisplay();
         $configurator->update(['reseller_margin_percent' => 15, 'reseller_min_quantity' => 10]);
-        $size = $configurator->sizes()->firstOrFail();
         $customer = Customer::create(['type' => 'PJ', 'name' => 'Revenda', 'email' => 'revenda@teste.com', 'customer_group' => 'reseller', 'reseller_status' => 'approved', 'password' => 'senha-forte-123', 'active' => true]);
         $pricing = app(DisplayPricingService::class);
-        $this->assertSame('final', $pricing->quote($configurator, $size, 1, $customer)['customer_group']);
-        $this->assertSame('reseller', $pricing->quote($configurator, $size, 10, $customer)['customer_group']);
+        $this->assertSame('final', $pricing->quote($configurator, 30, 40, 1, $customer)['customer_group']);
+        $this->assertSame('reseller', $pricing->quote($configurator, 30, 40, 10, $customer)['customer_group']);
         $this->post('/loja/entrar', ['email' => $customer->email, 'password' => 'senha-forte-123']);
-        $response = $this->postJson('/loja/display/preco', ['size_id' => $size->id, 'quantity' => 10])->assertOk();
+        $response = $this->postJson('/loja/display/preco', ['width_cm' => 30, 'height_cm' => 40, 'quantity' => 10])->assertOk();
         $this->assertLessThan(27.35, $response->json('unit_price'));
         $customer->update(['reseller_status' => 'suspended']);
         $this->post('/loja/display/carrinho', ['quote_token' => $response->json('token')])->assertSessionHasErrors('quote_token');
@@ -98,13 +97,12 @@ class DisplayConfiguratorTest extends TestCase
         User::factory()->create(['role' => 'admin', 'active' => true]);
         StoreSetting::create(['store_open' => true, 'pickup_enabled' => true]);
         $configurator = $this->configuredDisplay();
-        $size = $configurator->sizes()->firstOrFail();
         $this->get('/')->assertOk()->assertSee('Montar meu display');
         $this->get('/loja/produto/'.$configurator->product_id)->assertRedirect('/loja/display');
         $this->post('/loja/produto/'.$configurator->product_id.'/carrinho', ['quantity' => 1])->assertRedirect('/loja/display');
-        $this->get('/loja/display')->assertOk()->assertSee('3 mm')->assertSee($size->label);
+        $this->get('/loja/display')->assertOk()->assertSee('3 mm')->assertSee('Largura (cm)')->assertSee('Altura (cm)');
 
-        $response = $this->postJson('/loja/display/preco', ['size_id' => $size->id, 'quantity' => 10])->assertOk()->assertJsonPath('unit_price', 27.35);
+        $response = $this->postJson('/loja/display/preco', ['width_cm' => 30, 'height_cm' => 40, 'quantity' => 10])->assertOk()->assertJsonPath('unit_price', 27.35);
         $token = $response->json('token');
         $this->post('/loja/display/carrinho', ['quote_token' => $token, 'personalization' => 'Tema futebol'])->assertRedirect('/loja/carrinho');
         $this->get('/loja/carrinho')->assertOk()->assertSee('R$ 273,50')->assertSee('30 × 40 cm');
@@ -121,6 +119,8 @@ class DisplayConfiguratorTest extends TestCase
         $snapshot = OrderItem::firstOrFail()->configuration_snapshot;
         $this->assertEquals(3.0, $snapshot['laser_minutes']);
         $this->assertSame('30 × 40 cm', $snapshot['size_label']);
+        $this->assertEquals(30, $snapshot['width_cm']);
+        $this->assertEquals(40, $snapshot['height_cm']);
         $this->assertCount(2, $snapshot['material_usage']);
 
         $configurator->mdfMaterial->update(['stock_quantity' => 10]);
@@ -131,10 +131,29 @@ class DisplayConfiguratorTest extends TestCase
         $this->assertDatabaseHas('inventory_movements', ['production_order_id' => $production->id, 'material_id' => $configurator->adhesive_material_id, 'quantity' => 1.32, 'type' => 'reserve']);
     }
 
+    public function test_store_accepts_arbitrary_decimal_dimensions_but_rejects_over_limit_or_invalid_precision(): void
+    {
+        $this->configuredDisplay();
+        $response = $this->postJson('/loja/display/preco', ['width_cm' => 30.5, 'height_cm' => 40.2, 'quantity' => 1])->assertOk();
+        $this->assertGreaterThan(0, $response->json('unit_price'));
+        $this->postJson('/loja/display/preco', ['width_cm' => 80.1, 'height_cm' => 40, 'quantity' => 1])->assertUnprocessable();
+        $this->postJson('/loja/display/preco', ['width_cm' => 30, 'height_cm' => 90.1, 'quantity' => 1])->assertUnprocessable();
+        $this->postJson('/loja/display/preco', ['width_cm' => 30.55, 'height_cm' => 40, 'quantity' => 1])->assertUnprocessable();
+    }
+
+    public function test_quote_cannot_be_added_after_admin_reduces_maximum_dimensions(): void
+    {
+        $configurator = $this->configuredDisplay();
+        $response = $this->postJson('/loja/display/preco', ['width_cm' => 70, 'height_cm' => 80, 'quantity' => 1])->assertOk();
+        $configurator->update(['max_width_cm' => 60]);
+        $this->post('/loja/display/carrinho', ['quote_token' => $response->json('token')])->assertSessionHasErrors('quote_token');
+    }
+
     private function settingsData(array $override = []): array
     {
         return array_merge([
-            'laser_minutes_per_unit' => 3, 'mdf_loss_percent' => 10, 'adhesive_loss_percent' => 10,
+            'laser_minutes_per_unit' => 3, 'max_width_cm' => 80, 'max_height_cm' => 90,
+            'mdf_loss_percent' => 10, 'adhesive_loss_percent' => 10,
             'printing_cost_per_m2' => 10, 'application_cost_per_m2' => 10,
             'base_cost_per_unit' => 2, 'assembly_cost_per_unit' => 1,
             'packaging_cost_per_unit' => .5, 'artwork_setup_cost_per_order' => 10,
@@ -154,7 +173,6 @@ class DisplayConfiguratorTest extends TestCase
             'adhesive_material_id' => $adhesive->id, 'laser_machine_id' => $machine->id,
             'enabled' => true,
         ]));
-        $configurator->sizes()->create(['label' => '30 × 40 cm', 'width_cm' => 30, 'height_cm' => 40, 'active' => true]);
 
         return $configurator;
     }

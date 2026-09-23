@@ -35,7 +35,7 @@ SQLite é usado somente pelos testes automatizados, em memória, para que a suí
 
 ## Display personalizado na loja
 
-No administrativo, abra `/administracao/displays` (menu **Configurador de displays**). Cadastre antes um produto sob encomenda visível na loja, o MDF 3 mm, o adesivo e a máquina laser. Selecione esses cadastros, configure os custos próprios do display e adicione os tamanhos disponíveis. O tempo de laser começa em 3 minutos por unidade e pode ser alterado globalmente ou por tamanho.
+No administrativo, abra `/administracao/displays` (menu **Configurador de displays**). Cadastre antes um produto sob encomenda visível na loja, o MDF 3 mm, o adesivo e a máquina laser. Selecione esses cadastros, configure os custos próprios do display e defina somente a largura e a altura máximas. Na loja, o cliente informa medidas livres em passos de 0,1 cm, dentro desses limites, e recebe o preço antes de comprar. A mesma tela administrativa permite simular um orçamento com as medidas reais. O tempo de laser começa em 3 minutos por unidade e pode ser alterado no configurador.
 
 Use a simulação para conferir custo e preço de 1, 10 e 50 unidades. O configurador só pode ser publicado quando produto, materiais, máquina e ao menos um tamanho ativo estiverem válidos. Depois de publicado, o cliente monta o pedido em `/loja/display` e vê o preço antes de adicionar ao carrinho. O preço e a composição ficam preservados no pedido, mesmo que os custos sejam atualizados depois.
 
