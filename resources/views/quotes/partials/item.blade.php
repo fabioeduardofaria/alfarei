@@ -24,7 +24,7 @@
         <label class="quote-display-reference">Referência / tema do display<input class="display-reference" type="text" name="items[{{ $index }}][reference]" maxlength="100" value="{{ $item['reference'] ?? ($item['configuration_snapshot']['reference'] ?? '') }}" placeholder="Ex.: Turma da Mônica"></label>
         <label>Largura (cm)<input class="display-width" type="number" name="items[{{ $index }}][width_cm]" min="1" max="{{ $displayConfigurator?->max_width_cm ?? 250 }}" step="0.1" value="{{ $item['width_cm'] ?? ($item['configuration_snapshot']['width_cm'] ?? '') }}" placeholder="Até {{ $displayConfigurator?->max_width_cm ?? '—' }}"></label>
         <label>Altura (cm)<input class="display-height" type="number" name="items[{{ $index }}][height_cm]" min="1" max="{{ $displayConfigurator?->max_height_cm ?? 250 }}" step="0.1" value="{{ $item['height_cm'] ?? ($item['configuration_snapshot']['height_cm'] ?? '') }}" placeholder="Até {{ $displayConfigurator?->max_height_cm ?? '—' }}"></label>
-        <p>Adesivo aplicado em MDF 3 mm, com corte de contorno. O preço é calculado pelo configurador e confirmado ao salvar.</p>
+        <p>Adesivo aplicado em MDF {{ $displayConfigurator?->mdfMaterial?->thickness_mm ? rtrim(rtrim(number_format((float) $displayConfigurator->mdfMaterial->thickness_mm, 1, ',', ''), '0'), ',') : '3' }} mm, com corte de contorno. O preço é calculado pelo configurador e confirmado ao salvar.</p>
     </div>
     <div class="item-values">
         <label>Quantidade<input class="calc-input item-quantity" type="number" step="{{ $kind === 'display' ? '1' : '0.001' }}" min="{{ $kind === 'display' ? '1' : '0.001' }}" name="items[{{ $index }}][quantity]" value="{{ $item['quantity'] ?? 1 }}" required></label>

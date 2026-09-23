@@ -168,11 +168,12 @@ class DisplayConfiguratorTest extends TestCase
         $quote = Quote::firstOrFail();
         $item = $quote->items()->firstOrFail();
         $this->assertSame('display', $item->type);
-        $this->assertSame('Display adesivado Turma da Mônica · 30 × 40 cm', $item->description);
+        $this->assertSame('Display adesivado Turma da Mônica · MDF 3 mm · 30 × 40 cm', $item->description);
         $this->assertEquals(27.35, $item->unit_price);
         $this->assertEquals(19.14, $item->unit_cost);
         $this->assertEquals(30, $item->configuration_snapshot['width_cm']);
         $this->assertSame('Turma da Mônica', $item->configuration_snapshot['reference']);
+        $this->assertEquals(3, $item->configuration_snapshot['mdf_thickness_mm']);
         $this->get("/orcamentos/{$quote->id}/edit")->assertOk()->assertSee('Turma da Mônica');
         $this->post("/orcamentos/{$quote->id}/enviar")->assertRedirect();
         $quote->refresh();
@@ -181,10 +182,12 @@ class DisplayConfiguratorTest extends TestCase
         $this->post("/orcamentos/{$quote->id}/converter-em-pedido")->assertRedirect();
         $this->assertEquals(30, OrderItem::firstOrFail()->configuration_snapshot['width_cm']);
         $this->assertSame('Turma da Mônica', OrderItem::firstOrFail()->configuration_snapshot['reference']);
+        $this->assertEquals(3, OrderItem::firstOrFail()->configuration_snapshot['mdf_thickness_mm']);
         $this->post("/orcamentos/{$quote->id}/nova-versao")->assertRedirect();
         $revision = Quote::where('parent_quote_id', $quote->id)->firstOrFail();
         $this->assertEquals(30, $revision->items()->firstOrFail()->configuration_snapshot['width_cm']);
         $this->assertSame('Turma da Mônica', $revision->items()->firstOrFail()->configuration_snapshot['reference']);
+        $this->assertEquals(3, $revision->items()->firstOrFail()->configuration_snapshot['mdf_thickness_mm']);
     }
 
     public function test_admin_display_quote_rejects_dimensions_above_configured_limit(): void
@@ -210,6 +213,21 @@ class DisplayConfiguratorTest extends TestCase
             'items' => [['kind' => 'display', 'width_cm' => 30, 'height_cm' => 40, 'quantity' => 1]],
         ])->assertSessionHasErrors('items.0.reference');
         $this->assertDatabaseCount('quotes', 0);
+    }
+
+    public function test_display_quote_uses_the_registered_mdf_thickness_in_description(): void
+    {
+        $configurator = $this->configuredDisplay();
+        $configurator->mdfMaterial->update(['thickness_mm' => 3.1]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Espessura', 'customer_group' => 'final', 'active' => true]);
+        $this->actingAs($admin)->post('/orcamentos', [
+            'customer_id' => $customer->id, 'discount' => 0,
+            'items' => [['kind' => 'display', 'reference' => 'Tema teste', 'width_cm' => 30, 'height_cm' => 40, 'quantity' => 1]],
+        ])->assertRedirect();
+        $item = Quote::firstOrFail()->items()->firstOrFail();
+        $this->assertSame('Display adesivado Tema teste · MDF 3,1 mm · 30 × 40 cm', $item->description);
+        $this->assertEquals(3.1, $item->configuration_snapshot['mdf_thickness_mm']);
     }
 
     private function settingsData(array $override = []): array

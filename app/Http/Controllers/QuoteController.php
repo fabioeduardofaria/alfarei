@@ -244,9 +244,12 @@ class QuoteController extends Controller
                 $this->validateDisplayDimensions($configurator, $width, $height);
                 $price = $this->displayPricing->quote($configurator, $width, $height, (int) $item['quantity'], $customer);
                 $price['reference'] = $reference;
+                $thickness = (float) $configurator->mdfMaterial->thickness_mm;
+                $price['mdf_thickness_mm'] = $thickness;
+                $thicknessLabel = rtrim(rtrim(number_format($thickness, 1, ',', ''), '0'), ',');
                 $item = array_merge($item, [
                     'product_id' => $configurator->product_id,
-                    'description' => 'Display adesivado '.$reference.' · '.$price['size_label'],
+                    'description' => 'Display adesivado '.$reference.' · MDF '.$thicknessLabel.' mm · '.$price['size_label'],
                     'unit_price' => $price['unit_price'], 'unit_cost' => $price['unit_cost'],
                     'type' => 'display', 'configuration_snapshot' => $price,
                 ]);
