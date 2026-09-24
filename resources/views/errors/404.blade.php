@@ -22,10 +22,11 @@
                 <h1 id="not-found-title">Este caminho saiu <em>do contorno.</em></h1>
                 <p>A página que você procura não está mais aqui ou o endereço foi digitado incorretamente. Mas sua próxima ideia ainda tem lugar na Alfarei.</p>
                 <div class="not-found__actions">
-                    <a class="not-found__button not-found__button--primary" href="{{ route('loja.index') }}">Explorar a loja <span aria-hidden="true">↗</span></a>
                     @if(auth()->check())
-                        <a class="not-found__button not-found__button--secondary" href="{{ route('dashboard') }}">Ir para o painel <span aria-hidden="true">→</span></a>
+                        <a class="not-found__button not-found__button--primary" href="{{ route('dashboard') }}">Voltar ao sistema <span aria-hidden="true">→</span></a>
+                        <a class="not-found__button not-found__button--secondary" href="{{ route('loja.index') }}">Explorar a loja <span aria-hidden="true">↗</span></a>
                     @else
+                        <a class="not-found__button not-found__button--primary" href="{{ route('loja.index') }}">Explorar a loja <span aria-hidden="true">↗</span></a>
                         <a class="not-found__button not-found__button--secondary" href="{{ route('loja.tracking') }}">Rastrear pedido <span aria-hidden="true">→</span></a>
                     @endif
                 </div>

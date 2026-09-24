@@ -139,3 +139,8 @@ Route::middleware('auth')->group(function () {
     Route::post('producao/{ordemProducao}/ocorrencia', [ProductionController::class, 'logOccurrence'])->middleware('access:production')->name('producao.occurrence');
     Route::post('/sair', [AuthController::class, 'destroy'])->name('logout');
 });
+
+// Keep unmatched URLs in the web middleware stack so the 404 view can read the admin session.
+Route::fallback(function () {
+    abort(404);
+});

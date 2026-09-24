@@ -17,15 +17,20 @@ class NotFoundPageTest extends TestCase
             ->assertSee('Este caminho saiu')
             ->assertSee('Explorar a loja')
             ->assertSee('Rastrear pedido')
-            ->assertDontSee('Ir para o painel');
+            ->assertDontSee('Voltar ao sistema');
     }
 
     public function test_administrator_can_return_to_dashboard_from_not_found_page(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']))
-            ->get('/uma-pagina-antiga')
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->post('/entrar', ['email' => $admin->email, 'password' => 'password'])
+            ->assertRedirect(route('dashboard'));
+
+        $this->get('/uma-pagina-antiga')
             ->assertNotFound()
-            ->assertSee('Ir para o painel')
+            ->assertSee('Voltar ao sistema')
+            ->assertSee('href="'.route('dashboard').'"', false)
             ->assertSee('Explorar a loja');
     }
 }
