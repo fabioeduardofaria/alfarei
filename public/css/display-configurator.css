@@ -33,3 +33,9 @@
 .text-simulation-result>small{font-size:10px;line-height:1.45;color:#63756a}
 @media(max-width:800px){.text-simulation-breakdown{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.text-simulation-heading{display:block}.text-simulation-heading strong{display:block;margin-top:14px}.text-simulation-breakdown{grid-template-columns:1fr 1fr}}
+.text-simulation-result[hidden],.simulation-cost-details[hidden],.simulation-error[hidden]{display:none!important}
+.simulation-error{margin:14px 0 0;padding:11px 13px;border:1px solid #edc9c6;border-radius:5px;background:#fff0ee;color:#a34238;font-size:12px}
+.simulation-totals{border-top:1px solid #dce8de;margin:18px 0 13px!important;padding-top:14px}
+.simulation-cost-toggle{margin:2px 0 0}
+.simulation-cost-details{margin-bottom:12px}
+.simulation-cost-details span small{display:block;color:#708274;margin-top:2px}

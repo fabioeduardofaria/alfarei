@@ -56,7 +56,7 @@
     @if($missing !== [])
         <div class="display-notice">Complete e salve os parâmetros acima para liberar a simulação. Você pode manter a publicação na loja desmarcada enquanto testa os preços.</div>
     @else
-        <form method="POST" action="{{ route('texts.config.simulate') }}">@csrf
+        <form method="POST" action="{{ route('texts.config.simulate') }}" data-admin-simulator="text" data-result="textSimulationResult" data-error="textSimulationError">@csrf
             <div class="display-fields display-fields-three">
                 <label>Nome ou texto <x-field-tip text="Digite exatamente o texto a produzir. Espaços entram na largura estimada, mas não contam como caracteres de corte."/><input type="text" name="text" maxlength="100" value="{{ old('text', 'Aurora') }}" placeholder="Ex.: Aurora" required></label>
                 <label>Material <x-field-tip text="Escolha MDF ou acrílico cadastrado. O custo, a espessura e as dimensões da chapa vêm do cadastro do material."/><select name="material_id" required><option value="">Selecione</option>@foreach($materials as $material)<option value="{{ $material->id }}" @selected(old('material_id') == $material->id)>{{ $material->name }} · {{ $material->thickness_mm }} mm</option>@endforeach</select></label>
@@ -68,19 +68,19 @@
             </div>
             <div class="form-actions"><button class="primary" type="submit">Calcular simulação →</button></div>
         </form>
-        @if($simulation = session('text_simulation'))
-            <div class="text-simulation-result" aria-live="polite">
-                <div class="text-simulation-heading"><div><small>SIMULAÇÃO · CLIENTE FINAL</small><h3>{{ $simulation['text'] }} · {{ $simulation['material_name'] }} {{ $simulation['thickness_mm'] }} mm</h3><p>{{ $simulation['finish_label'] }} · {{ number_format($simulation['width_cm'], 1, ',', '.') }} × {{ number_format($simulation['height_cm'], 1, ',', '.') }} cm @if($simulation['width_estimated']) · largura estimada @endif · {{ $simulation['quantity'] }} unidade(s)</p></div><strong>R$ {{ number_format($simulation['total'], 2, ',', '.') }}</strong></div>
-                <div class="text-simulation-breakdown">
-                    <span>Material <b>R$ {{ number_format($simulation['breakdown']['materialCost'], 2, ',', '.') }}</b></span>
-                    <span>Laser ({{ number_format($simulation['laser_minutes'], 2, ',', '.') }} min) <b>R$ {{ number_format($simulation['breakdown']['laserCost'], 2, ',', '.') }}</b></span>
-                    <span>Acabamento <b>R$ {{ number_format($simulation['breakdown']['finishCost'], 2, ',', '.') }}</b></span>
-                    <span>Base + embalagem + arte <b>R$ {{ number_format($simulation['breakdown']['base'] + $simulation['breakdown']['packaging'] + $simulation['breakdown']['setup'], 2, ',', '.') }}</b></span>
-                </div>
-                <p><b>Custo unitário:</b> R$ {{ number_format($simulation['unit_cost'], 2, ',', '.') }} <b>Preço unitário:</b> R$ {{ number_format($simulation['unit_price'], 2, ',', '.') }}</p>
-                <small>Preço estimado com as medidas informadas. A arte final precisa respeitá-las; se mudar, faça uma nova simulação.</small>
+        <p class="simulation-error" id="textSimulationError" role="alert" hidden></p>
+        @php($simulation = session('text_simulation'))
+        <div class="text-simulation-result" id="textSimulationResult" aria-live="polite" @unless($simulation) hidden @endunless>
+            <div class="text-simulation-heading"><div><small>SIMULAÇÃO · CLIENTE FINAL</small><h3 data-sim="title">@if($simulation){{ $simulation['text'] }} · {{ $simulation['material_name'] }} {{ $simulation['thickness_mm'] }} mm @endif</h3><p data-sim="details">@if($simulation){{ $simulation['finish_label'] }} · {{ number_format($simulation['width_cm'], 1, ',', '.') }} × {{ number_format($simulation['height_cm'], 1, ',', '.') }} cm @if($simulation['width_estimated']) · largura estimada @endif · {{ $simulation['quantity'] }} unidade(s)@endif</p></div><strong data-sim="total">@if($simulation)R$ {{ number_format($simulation['total'], 2, ',', '.') }}@endif</strong></div>
+            <p class="simulation-totals"><span>Custo por unidade: <b data-sim="unit_cost">@if($simulation)R$ {{ number_format($simulation['unit_cost'], 2, ',', '.') }}@endif</b></span><span>Preço por unidade: <b data-sim="unit_price">@if($simulation)R$ {{ number_format($simulation['unit_price'], 2, ',', '.') }}@endif</b></span></p>
+            <button class="secondary simulation-cost-toggle" type="button" aria-expanded="false" aria-controls="textCostDetails" data-cost-toggle>Ver custos por item</button>
+            <div class="text-simulation-breakdown simulation-cost-details" id="textCostDetails" hidden>
+                @foreach(['materialCost' => 'Material', 'laserCost' => 'Máquina laser', 'finishCost' => 'Acabamento', 'base' => 'Base', 'packaging' => 'Embalagem', 'setup' => 'Preparação da arte'] as $key => $label)
+                    <span>{{ $label }} @if($key === 'laserCost')<small data-laser-minutes>@if($simulation){{ number_format($simulation['laser_minutes'], 2, ',', '.') }} min @endif</small>@endif <b data-cost="{{ $key }}">@if($simulation)R$ {{ number_format($simulation['breakdown'][$key], 2, ',', '.') }}@endif</b></span>
+                @endforeach
             </div>
-        @endif
+            <small>Custos por unidade. Preço estimado com as medidas informadas; a arte final precisa respeitá-las.</small>
+        </div>
     @endif
 </section>
 <script>
@@ -114,4 +114,5 @@
     update();
 })();
 </script>
+<script src="{{ asset('js/admin-simulators.js') }}?v={{ filemtime(public_path('js/admin-simulators.js')) }}" defer></script>
 @endsection

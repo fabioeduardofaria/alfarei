@@ -8,6 +8,7 @@ use App\Models\Material;
 use App\Models\Product;
 use App\Models\TextCutoutConfigurator;
 use App\Services\TextCutoutPricingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -104,7 +105,7 @@ class TextCutoutConfiguratorController extends Controller
         return back()->with('success', 'Parâmetros de nomes e textos atualizados.');
     }
 
-    public function simulate(Request $request): RedirectResponse
+    public function simulate(Request $request): RedirectResponse|JsonResponse
     {
         $configurator = TextCutoutConfigurator::with(['product', 'laserMachine'])->first();
         if (! $configurator || $this->pricing->missingRequirements($configurator) !== []) {
@@ -129,6 +130,10 @@ class TextCutoutConfiguratorController extends Controller
             );
         } catch (InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['simulation' => $exception->getMessage()]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['simulation' => $quote]);
         }
 
         return back()->withInput($request->only(['text', 'material_id', 'finish', 'color', 'height_cm', 'width_cm', 'quantity']))

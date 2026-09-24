@@ -61,7 +61,7 @@ class DisplayConfiguratorTest extends TestCase
     {
         $configurator = $this->configuredDisplay();
         $admin = User::factory()->create(['role' => 'admin']);
-        $this->actingAs($admin)->get('/administracao/displays')->assertOk()->assertSee('Limites de medida')->assertSee('Simular orçamento sob medida');
+        $this->actingAs($admin)->get('/administracao/displays')->assertOk()->assertSee('Limites de medida')->assertSee('Simular orçamento sob medida')->assertSee('Ver custos por item')->assertSee('data-admin-simulator="display"', false);
         $this->actingAs($admin)->put('/administracao/displays', $this->settingsData([
             'product_id' => $configurator->product_id,
             'mdf_material_id' => $configurator->mdf_material_id,
@@ -75,6 +75,9 @@ class DisplayConfiguratorTest extends TestCase
         $this->assertEquals(4, $configurator->fresh()->laser_minutes_per_unit);
         $this->assertEquals(60, $configurator->fresh()->max_width_cm);
         $this->actingAs($admin)->post('/administracao/displays/simular', ['width_cm' => 45.5, 'height_cm' => 52.3, 'quantity' => 10])->assertSessionHas('display_simulation');
+        $this->postJson('/administracao/displays/simular', ['width_cm' => 30, 'height_cm' => 40, 'quantity' => 10])
+            ->assertOk()->assertJsonPath('simulation.breakdown.mdf', 6.6)->assertJsonPath('simulation.laser_minutes', 4);
+        $this->postJson('/administracao/displays/simular', ['width_cm' => 100, 'height_cm' => 40, 'quantity' => 1])->assertUnprocessable();
         $this->get('/loja/display')->assertOk();
     }
 

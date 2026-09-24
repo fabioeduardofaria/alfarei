@@ -8,11 +8,13 @@ use App\Models\Material;
 use App\Models\Product;
 use App\Models\TextCutoutConfigurator;
 use App\Services\DisplayPricingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use InvalidArgumentException;
 
 class DisplayConfiguratorController extends Controller
 {
@@ -85,19 +87,27 @@ class DisplayConfiguratorController extends Controller
         return back()->with('success', 'Parâmetros de display atualizados.');
     }
 
-    public function simulate(Request $request): RedirectResponse
+    public function simulate(Request $request): RedirectResponse|JsonResponse
     {
-        $configurator = DisplayConfigurator::firstOrCreate([]);
+        $configurator = DisplayConfigurator::with(['product', 'mdfMaterial', 'adhesiveMaterial', 'laserMachine'])->firstOrCreate([]);
+        if ($this->pricing->missingRequirements($configurator) !== []) {
+            throw ValidationException::withMessages(['simulation' => 'Complete e salve os parâmetros antes de simular.']);
+        }
         $data = $request->validate([
             'width_cm' => ['required', 'numeric', 'min:1', 'max:'.$configurator->max_width_cm, 'decimal:0,1'],
             'height_cm' => ['required', 'numeric', 'min:1', 'max:'.$configurator->max_height_cm, 'decimal:0,1'],
             'quantity' => ['required', 'integer', 'min:1', 'max:100'],
         ]);
-        if ($this->pricing->missingRequirements($configurator) !== []) {
-            throw ValidationException::withMessages(['width_cm' => 'Complete os parâmetros antes de simular.']);
+        try {
+            $quote = $this->pricing->quote($configurator, (float) $data['width_cm'], (float) $data['height_cm'], (int) $data['quantity']);
+        } catch (InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['simulation' => $exception->getMessage()]);
         }
-        $quote = $this->pricing->quote($configurator, (float) $data['width_cm'], (float) $data['height_cm'], (int) $data['quantity']);
 
-        return back()->with('display_simulation', $quote);
+        if ($request->expectsJson()) {
+            return response()->json(['simulation' => $quote]);
+        }
+
+        return back()->withInput($request->only(['width_cm', 'height_cm', 'quantity']))->with('display_simulation', $quote);
     }
 }

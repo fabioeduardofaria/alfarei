@@ -59,16 +59,27 @@
 
 @if($missing === [])
 <section class="panel display-admin-form">
-    <div class="display-section-title"><h2>Simular orçamento sob medida</h2><p>Informe as dimensões reais e a quantidade. O cálculo usa as mesmas regras da loja; depois, use o preço no orçamento comercial.</p></div>
-    <form class="display-fields display-simulation-form" method="POST" action="{{ route('displays.config.simulate') }}">@csrf
+    <div class="display-section-title"><h2>Simular orçamento sob medida</h2><p>Informe as dimensões e a quantidade. O cálculo usa os parâmetros salvos e aparece aqui, sem recarregar a página.</p></div>
+    <form class="display-fields display-simulation-form" method="POST" action="{{ route('displays.config.simulate') }}" data-admin-simulator="display" data-result="displaySimulationResult" data-error="displaySimulationError">@csrf
         <label>Largura (cm)<input type="number" name="width_cm" value="{{ old('width_cm', $configurator->max_width_cm) }}" min="1" max="{{ $configurator->max_width_cm }}" step="0.1" required></label>
         <label>Altura (cm)<input type="number" name="height_cm" value="{{ old('height_cm', $configurator->max_height_cm) }}" min="1" max="{{ $configurator->max_height_cm }}" step="0.1" required></label>
         <label>Quantidade<input type="number" name="quantity" value="{{ old('quantity', 1) }}" min="1" max="100" required></label>
         <button class="primary" type="submit">Calcular preço →</button>
     </form>
-    @if($simulation = session('display_simulation'))
-        <div class="display-simulation-result"><b>{{ $simulation['size_label'] }} · {{ $simulation['quantity'] }} unidade(s)</b><span>Custo por unidade: R$ {{ number_format($simulation['unit_cost'], 2, ',', '.') }}</span><span>Preço por unidade: R$ {{ number_format($simulation['unit_price'], 2, ',', '.') }}</span><strong>Total: R$ {{ number_format($simulation['total'], 2, ',', '.') }}</strong></div>
-    @endif
+    <p class="simulation-error" id="displaySimulationError" role="alert" hidden></p>
+    @php($simulation = session('display_simulation'))
+    <div class="text-simulation-result" id="displaySimulationResult" aria-live="polite" @unless($simulation) hidden @endunless>
+        <div class="text-simulation-heading"><div><small>SIMULAÇÃO · CLIENTE FINAL</small><h3 data-sim="title">{{ $simulation['size_label'] ?? '' }} @if($simulation) · {{ $simulation['quantity'] }} unidade(s) @endif</h3><p>MDF adesivado com corte de contorno</p></div><strong data-sim="total">@if($simulation)R$ {{ number_format($simulation['total'], 2, ',', '.') }}@endif</strong></div>
+        <p class="simulation-totals"><span>Custo por unidade: <b data-sim="unit_cost">@if($simulation)R$ {{ number_format($simulation['unit_cost'], 2, ',', '.') }}@endif</b></span><span>Preço por unidade: <b data-sim="unit_price">@if($simulation)R$ {{ number_format($simulation['unit_price'], 2, ',', '.') }}@endif</b></span></p>
+        <button class="secondary simulation-cost-toggle" type="button" aria-expanded="false" aria-controls="displayCostDetails" data-cost-toggle>Ver custos por item</button>
+        <div class="text-simulation-breakdown simulation-cost-details" id="displayCostDetails" hidden>
+            @foreach(['mdf' => 'MDF', 'adhesive' => 'Adesivo', 'laser' => 'Máquina laser', 'printing' => 'Impressão', 'application' => 'Aplicação', 'base' => 'Base', 'assembly' => 'Montagem', 'packaging' => 'Embalagem', 'setupPerUnit' => 'Preparação da arte'] as $key => $label)
+                <span>{{ $label }} @if($key === 'laser')<small data-laser-minutes>@if($simulation){{ number_format($simulation['laser_minutes'], 2, ',', '.') }} min @endif</small>@endif <b data-cost="{{ $key }}">@if($simulation)R$ {{ number_format($simulation['breakdown'][$key], 2, ',', '.') }}@endif</b></span>
+            @endforeach
+        </div>
+        <small>Custos por unidade. A preparação da arte é dividida pela quantidade informada.</small>
+    </div>
 </section>
 @endif
+<script src="{{ asset('js/admin-simulators.js') }}?v={{ filemtime(public_path('js/admin-simulators.js')) }}" defer></script>
 @endsection

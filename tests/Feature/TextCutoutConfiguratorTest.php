@@ -54,13 +54,18 @@ class TextCutoutConfiguratorTest extends TestCase
     {
         [, $mdf] = $this->configured();
         $admin = User::factory()->create(['role' => 'admin']);
-        $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertSee('Simular preço de nome ou texto');
+        $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertSee('Simular preço de nome ou texto')->assertSee('Ver custos por item')->assertSee('data-admin-simulator="text"', false);
+
+        $this->postJson('/administracao/nomes-textos/simular', [
+            'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white',
+            'height_cm' => 10, 'width_cm' => 30, 'quantity' => 10,
+        ])->assertOk()->assertJsonPath('simulation.unit_price', 16.65)->assertJsonPath('simulation.breakdown.materialCost', 1.65);
 
         $this->post('/administracao/nomes-textos/simular', [
             'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white',
             'height_cm' => 10, 'width_cm' => 30, 'quantity' => 10,
         ])->assertRedirect()->assertSessionHas('text_simulation', fn ($quote) => $quote['unit_price'] === 16.65 && $quote['total'] === 166.5);
-        $this->get('/administracao/nomes-textos')->assertOk()->assertSee('R$ 166,50')->assertSee('Custo unitário');
+        $this->get('/administracao/nomes-textos')->assertOk()->assertSee('R$ 166,50')->assertSee('Custo por unidade');
 
         $this->post('/administracao/nomes-textos/simular', [
             'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'painted',
