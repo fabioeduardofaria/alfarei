@@ -23,7 +23,9 @@ class TextCutoutConfiguratorTest extends TestCase
     {
         $this->get('/loja/nome-personalizado')->assertNotFound();
         $admin = User::factory()->create(['role' => 'admin']);
-        $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertSee('Configurador de nomes e textos');
+        $response = $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertSee('Configurador de nomes e textos');
+        $this->assertSame(21, substr_count($response->getContent(), 'class="field-tip"'));
+        $response->assertSee('Ajuda: Tempo estimado para cortar um caractere', false);
         $this->put('/administracao/nomes-textos', $this->settings(['enabled' => 1]))->assertSessionHasErrors('enabled');
         $this->get('/loja/nome-personalizado')->assertNotFound();
     }
