@@ -7,6 +7,8 @@ use App\Models\MaterialCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MaterialController extends Controller
@@ -56,6 +58,26 @@ class MaterialController extends Controller
             'name' => $category->name,
             'already_exists' => ! $category->wasRecentlyCreated,
         ], $category->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function updateCategory(Request $request, MaterialCategory $category): JsonResponse
+    {
+        $data = $request->validate(['name' => ['required', 'string', 'max:80', 'regex:/[\pL\pN]/u']]);
+        $name = MaterialCategory::cleanName($data['name']);
+        $key = MaterialCategory::keyFor($name);
+
+        DB::transaction(function () use ($category, $name, $key): void {
+            $category = MaterialCategory::query()->lockForUpdate()->findOrFail($category->id);
+            if (MaterialCategory::where('key', $key)->whereKeyNot($category->id)->exists()) {
+                throw ValidationException::withMessages(['name' => 'Essa categoria já existe. Selecione-a na lista.']);
+            }
+
+            $oldName = $category->name;
+            $category->update(['name' => $name, 'key' => $key]);
+            Material::where('category', $oldName)->update(['category' => $name]);
+        });
+
+        return response()->json(['id' => $category->id, 'name' => $name]);
     }
 
     private function validated(Request $request, ?Material $material = null): array

@@ -63,4 +63,24 @@ class MaterialCategoryTest extends TestCase
         $this->postJson('/materiais/categorias', ['name' => 'Madeira'])->assertForbidden();
         $this->assertDatabaseMissing('material_categories', ['key' => 'madeira']);
     }
+
+    public function test_correcting_a_category_updates_linked_materials_and_rejects_duplicate_names(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $category = MaterialCategory::create(['name' => 'Acrilicoo', 'key' => 'acrilicoo']);
+        $first = Material::create(['code' => 'ACR-A', 'name' => 'Acrílico A', 'category' => 'Acrilicoo', 'unit' => 'chapa', 'cost_per_unit' => 50]);
+        $second = Material::create(['code' => 'ACR-B', 'name' => 'Acrílico B', 'category' => 'Acrilicoo', 'unit' => 'chapa', 'cost_per_unit' => 60]);
+
+        $this->putJson(route('materiais.categories.update', $category), ['name' => 'Acrílico'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('name');
+        $this->assertSame('Acrilicoo', $first->fresh()->category);
+
+        $this->putJson(route('materiais.categories.update', $category), ['name' => 'Acrílico especial'])
+            ->assertOk()
+            ->assertJsonPath('name', 'Acrílico especial');
+        $this->assertSame('Acrílico especial', $first->fresh()->category);
+        $this->assertSame('Acrílico especial', $second->fresh()->category);
+        $this->assertSame('acrilico especial', $category->fresh()->key);
+    }
 }

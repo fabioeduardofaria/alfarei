@@ -89,6 +89,7 @@ Route::middleware('auth')->group(function () {
     Route::post('crm/{lead}/converter-cliente', [LeadController::class, 'convertToCustomer'])->middleware('access:crm')->name('crm.convert-customer');
     Route::resource('materiais', MaterialController::class)->except('show', 'destroy')->middleware('access:materials');
     Route::post('materiais/categorias', [MaterialController::class, 'storeCategory'])->middleware('access:materials')->name('materiais.categories.store');
+    Route::put('materiais/categorias/{category}', [MaterialController::class, 'updateCategory'])->middleware('access:materials')->name('materiais.categories.update');
     Route::resource('maquinas', MachineController::class)->except('show', 'destroy')->middleware('access:production');
     Route::get('maquinas/{maquina}/manutencoes', [MachineController::class, 'maintenances'])->middleware('access:production')->name('maquinas.maintenances');
     Route::post('maquinas/{maquina}/manutencoes', [MachineController::class, 'storeMaintenance'])->middleware('access:production')->name('maquinas.maintenances.store');

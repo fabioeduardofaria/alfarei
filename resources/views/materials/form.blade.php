@@ -22,6 +22,7 @@
                         @endforeach
                     </select>
                     <button class="secondary" type="button" id="addMaterialCategory" aria-expanded="false" aria-controls="newMaterialCategory">+ Nova</button>
+                    <button class="secondary" type="button" id="editMaterialCategory" aria-expanded="false" aria-controls="editMaterialCategoryPanel" @disabled(!$selectedCategory)>Editar</button>
                 </div>
                 <p class="material-category-help">Use a mesma categoria para materiais do mesmo grupo.</p>
                 @error('category_id')<small class="field-error">{{ $message }}</small>@enderror
@@ -32,6 +33,15 @@
                         <button class="primary" type="button" id="saveMaterialCategory">Salvar</button>
                     </div>
                     <p class="material-category-status" id="materialCategoryStatus" role="status" aria-live="polite"></p>
+                </div>
+                <div class="material-category-create" id="editMaterialCategoryPanel" data-url-template="{{ route('materiais.categories.update', ['category' => '__CATEGORY__']) }}" hidden>
+                    <label for="editMaterialCategoryName">Corrigir nome da categoria</label>
+                    <p class="material-category-help">A correção atualiza todos os materiais desta categoria.</p>
+                    <div class="material-category-picker">
+                        <input id="editMaterialCategoryName" maxlength="80" autocomplete="off">
+                        <button class="primary" type="button" id="saveEditedMaterialCategory">Salvar correção</button>
+                    </div>
+                    <p class="material-category-status" id="editMaterialCategoryStatus" role="status" aria-live="polite"></p>
                 </div>
             </div>
             <label class="span-2">Descrição<input name="name" value="{{ old('name', $material->name) }}" required></label>
