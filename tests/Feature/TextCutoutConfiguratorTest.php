@@ -37,10 +37,11 @@ class TextCutoutConfiguratorTest extends TestCase
     {
         [$configurator, $mdf, $acrylic] = $this->configured();
         $pricing = app(TextCutoutPricingService::class);
-        $natural = $pricing->quote($configurator, $mdf, 'Aurora', 10, 30, 'natural', null, 10);
-        $white = $pricing->quote($configurator, $mdf, 'Aurora', 10, 30, 'white', null, 10);
-        $painted = $pricing->quote($configurator, $mdf, 'Aurora', 10, 30, 'painted', 'rosa', 10);
-        $acrylicQuote = $pricing->quote($configurator, $acrylic, 'Aurora', 10, 30, 'natural', null, 10);
+        $natural = $pricing->quote($configurator, $mdf, 'Aurora', 10, 30, 'natural', null, 10, null, true);
+        $white = $pricing->quote($configurator, $mdf, 'Aurora', 10, 30, 'white', null, 10, null, true);
+        $painted = $pricing->quote($configurator, $mdf, 'Aurora', 10, 30, 'painted', 'rosa', 10, null, true);
+        $acrylicQuote = $pricing->quote($configurator, $acrylic, 'Aurora', 10, 30, 'natural', null, 10, null, true);
+        $withoutBase = $pricing->quote($configurator, $mdf, 'Aurora', 10, 30, 'white', null, 10);
         $this->assertEquals(11.65, $white['unit_cost']);
         $this->assertEquals(16.65, $white['unit_price']);
         $this->assertLessThan($white['unit_cost'], $natural['unit_cost']);
@@ -48,6 +49,10 @@ class TextCutoutConfiguratorTest extends TestCase
         $this->assertGreaterThan($natural['unit_cost'], $acrylicQuote['unit_cost']);
         $this->assertSame('rosa', $painted['color']);
         $this->assertCount(1, $white['material_usage']);
+        $this->assertTrue($white['with_base']);
+        $this->assertFalse($withoutBase['with_base']);
+        $this->assertEquals(0, $withoutBase['breakdown']['base']);
+        $this->assertEquals(2, $white['unit_cost'] - $withoutBase['unit_cost']);
     }
 
     public function test_admin_can_simulate_text_price_with_saved_parameters(): void
@@ -57,12 +62,12 @@ class TextCutoutConfiguratorTest extends TestCase
         $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertSee('Simular preço de nome ou texto')->assertSee('Ver custos por item')->assertSee('data-admin-simulator="text"', false);
 
         $this->postJson('/administracao/nomes-textos/simular', [
-            'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white',
+            'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white', 'with_base' => 1,
             'height_cm' => 10, 'width_cm' => 30, 'quantity' => 10,
         ])->assertOk()->assertJsonPath('simulation.unit_price', 16.65)->assertJsonPath('simulation.breakdown.materialCost', 1.65);
 
         $this->post('/administracao/nomes-textos/simular', [
-            'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white',
+            'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white', 'with_base' => 1,
             'height_cm' => 10, 'width_cm' => 30, 'quantity' => 10,
         ])->assertRedirect()->assertSessionHas('text_simulation', fn ($quote) => $quote['unit_price'] === 16.65 && $quote['total'] === 166.5);
         $this->get('/administracao/nomes-textos')->assertOk()->assertSee('R$ 166,50')->assertSee('Custo por unidade');
@@ -123,24 +128,25 @@ class TextCutoutConfiguratorTest extends TestCase
         $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Aurora', 'email' => 'aurora@teste.com', 'customer_group' => 'final', 'active' => true]);
         $this->actingAs($admin)->get('/orcamentos/create')->assertOk()->assertSee('Nome ou texto recortado');
         $this->postJson('/orcamentos/nome-texto/preco', [
-            'text_content' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white',
+            'text_content' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white', 'with_base' => 1,
             'width_cm' => 30, 'height_cm' => 10, 'quantity' => 10, 'customer_id' => $customer->id,
         ])->assertOk()->assertJsonPath('unit_price', 16.65);
         $this->post('/orcamentos', [
             'customer_id' => $customer->id, 'valid_until' => today()->addWeek()->toDateString(), 'discount' => 0,
             'items' => [[
                 'kind' => 'text_cutout', 'text_content' => 'Aurora', 'text_material_id' => $mdf->id,
-                'text_finish' => 'white', 'text_width_cm' => 30, 'text_height_cm' => 10,
+                'text_finish' => 'white', 'text_with_base' => 1, 'text_width_cm' => 30, 'text_height_cm' => 10,
                 'quantity' => 10, 'unit_price' => 0.01, 'unit_cost' => 0.01,
             ]],
         ])->assertRedirect();
         $quote = Quote::firstOrFail();
         $item = $quote->items()->firstOrFail();
         $this->assertSame('text_cutout', $item->type);
-        $this->assertSame('Nome/texto "Aurora" · MDF cru 3 mm · branco · 30 × 10 cm', $item->description);
+        $this->assertSame('Nome/texto "Aurora" · MDF cru 3 mm · branco · com base de apoio · 30 × 10 cm', $item->description);
         $this->assertEquals(16.65, $item->unit_price);
         $this->assertEquals(11.65, $item->unit_cost);
         $this->assertSame($mdf->id, $item->configuration_snapshot['material_id']);
+        $this->assertTrue($item->configuration_snapshot['with_base']);
         $this->post("/orcamentos/{$quote->id}/enviar")->assertRedirect();
         $quote->refresh();
         $this->get('/proposta/'.$quote->approval_token)->assertOk()->assertSee('Aurora');
@@ -177,6 +183,27 @@ class TextCutoutConfiguratorTest extends TestCase
         $orderItem = OrderItem::firstOrFail();
         $this->assertSame('Aurora', $orderItem->configuration_snapshot['text']);
         $this->assertStringContainsString('Aurora', $orderItem->description);
+    }
+
+    public function test_store_charges_support_base_only_when_customer_selects_it(): void
+    {
+        [, $mdf] = $this->configured();
+        $input = [
+            'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'natural',
+            'width_cm' => 30, 'height_cm' => 10, 'quantity' => 1,
+        ];
+
+        $withoutBase = $this->postJson('/loja/nome-personalizado/preco', $input + ['with_base' => 0])
+            ->assertOk();
+        $withBase = $this->postJson('/loja/nome-personalizado/preco', $input + ['with_base' => 1])
+            ->assertOk();
+
+        $this->assertGreaterThan($withoutBase->json('unit_price'), $withBase->json('unit_price'));
+        $this->post('/loja/nome-personalizado/carrinho', ['quote_token' => $withBase->json('token')])
+            ->assertRedirect('/loja/carrinho');
+        $snapshot = collect(session('store_cart'))->first()['configuration_snapshot'];
+        $this->assertTrue($snapshot['with_base']);
+        $this->get('/loja/carrinho')->assertOk()->assertSee('com base de apoio');
     }
 
     public function test_text_quote_rejects_invalid_material_and_painted_finish_without_color(): void

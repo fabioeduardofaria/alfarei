@@ -13,7 +13,7 @@
             put(result, '[data-sim="title"]', `${quote.size_label} · ${quote.quantity} unidade(s)`);
         } else {
             put(result, '[data-sim="title"]', `${quote.text} · ${quote.material_name} ${number.format(quote.thickness_mm)} mm`);
-            put(result, '[data-sim="details"]', `${quote.finish_label} · ${number.format(quote.width_cm)} × ${number.format(quote.height_cm)} cm${quote.width_estimated ? ' · largura estimada' : ''} · ${quote.quantity} unidade(s)`);
+            put(result, '[data-sim="details"]', `${quote.finish_label} · ${quote.base_label} · ${number.format(quote.width_cm)} × ${number.format(quote.height_cm)} cm${quote.width_estimated ? ' · largura estimada' : ''} · ${quote.quantity} unidade(s)`);
         }
         put(result, '[data-sim="unit_cost"]', money.format(quote.unit_cost));
         put(result, '[data-sim="unit_price"]', money.format(quote.unit_price));

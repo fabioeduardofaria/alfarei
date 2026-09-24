@@ -39,3 +39,13 @@
 .simulation-cost-toggle{margin:2px 0 0}
 .simulation-cost-details{margin-bottom:12px}
 .simulation-cost-details span small{display:block;color:#708274;margin-top:2px}
+.text-base-options{border:0;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.text-base-options legend{padding:0 0 8px;font-size:12px;font-weight:700;color:#273b2e}
+.text-base-options label,.display-store-builder .text-base-options label{display:flex;align-items:center;gap:10px;min-height:58px;padding:10px 12px;border:1px solid #d9e3d9;border-radius:7px;background:#fff;cursor:pointer}
+.text-base-options label:has(input:checked){border-color:#5f9771;background:#f1f8f2}
+.text-base-options input[type=radio],.display-store-builder .text-base-options input[type=radio]{width:16px;height:16px;flex:none;padding:0;margin:0;accent-color:#3f7754}
+.text-base-options label span{display:grid;gap:3px}
+.text-base-options label b{font-size:12px}
+.text-base-options label small{font-size:10px;font-weight:400;color:#607267}
+.text-sim-base{grid-column:1/-1}
+@media(max-width:600px){.text-base-options{grid-template-columns:1fr}}

@@ -116,6 +116,7 @@ class TextCutoutConfiguratorController extends Controller
             'text' => ['required', 'string', 'max:100'],
             'material_id' => ['required', 'exists:materials,id'],
             'finish' => ['required', 'in:natural,white,painted'],
+            'with_base' => ['nullable', 'in:0,1'],
             'color' => ['nullable', 'string', 'max:50'],
             'height_cm' => ['required', 'numeric', 'min:1', 'decimal:0,1'],
             'width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
@@ -126,7 +127,7 @@ class TextCutoutConfiguratorController extends Controller
             $quote = $this->pricing->quote(
                 $configurator, Material::findOrFail($data['material_id']), $data['text'],
                 (float) $data['height_cm'], isset($data['width_cm']) ? (float) $data['width_cm'] : null,
-                $data['finish'], $data['color'] ?? null, (int) $data['quantity'],
+                $data['finish'], $data['color'] ?? null, (int) $data['quantity'], null, (bool) ($data['with_base'] ?? false),
             );
         } catch (InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['simulation' => $exception->getMessage()]);
@@ -136,7 +137,7 @@ class TextCutoutConfiguratorController extends Controller
             return response()->json(['simulation' => $quote]);
         }
 
-        return back()->withInput($request->only(['text', 'material_id', 'finish', 'color', 'height_cm', 'width_cm', 'quantity']))
+        return back()->withInput($request->only(['text', 'material_id', 'finish', 'color', 'with_base', 'height_cm', 'width_cm', 'quantity']))
             ->with('text_simulation', $quote);
     }
 }

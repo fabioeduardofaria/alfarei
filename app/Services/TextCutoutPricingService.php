@@ -50,7 +50,7 @@ class TextCutoutPricingService
         return $missing;
     }
 
-    public function quote(TextCutoutConfigurator $configurator, Material $material, string $text, float $heightCm, ?float $widthCm, string $finish, ?string $color, int $quantity, ?Customer $customer = null): array
+    public function quote(TextCutoutConfigurator $configurator, Material $material, string $text, float $heightCm, ?float $widthCm, string $finish, ?string $color, int $quantity, ?Customer $customer = null, bool $withBase = false): array
     {
         $text = preg_replace('/\s+/u', ' ', trim($text));
         $color = $color === null ? null : preg_replace('/\s+/u', ' ', trim($color));
@@ -82,7 +82,7 @@ class TextCutoutPricingService
             'painted' => (float) $configurator->painted_finish_cost_per_m2,
             default => 0,
         };
-        $base = (float) $configurator->base_cost_per_unit;
+        $base = $withBase ? (float) $configurator->base_cost_per_unit : 0;
         $packaging = (float) $configurator->packaging_cost_per_unit;
         $setup = (float) $configurator->setup_cost_per_order / $quantity;
         $cost = $materialCost + $laserCost + $finishCost + $base + $packaging + $setup;
@@ -98,12 +98,15 @@ class TextCutoutPricingService
             'white' => 'branco', 'painted' => 'pintado em '.$color, default => 'sem pintura'
         };
 
+        $baseLabel = $withBase ? 'com base de apoio' : 'sem base';
+
         return [
             'text' => $text, 'material_id' => $material->id, 'material_name' => $material->name,
             'material_category' => $material->category, 'thickness_mm' => (float) $material->thickness_mm,
             'finish' => $finish, 'finish_label' => $finishLabel, 'color' => $finish === 'painted' ? $color : null,
+            'with_base' => $withBase, 'base_label' => $baseLabel,
             'width_cm' => $widthCm, 'height_cm' => $heightCm, 'width_estimated' => $estimatedWidth,
-            'size_label' => '"'.$text.'" · '.$material->category.' '.$material->thickness_mm.' mm · '.$finishLabel,
+            'size_label' => '"'.$text.'" · '.$material->category.' '.$material->thickness_mm.' mm · '.$finishLabel.' · '.$baseLabel,
             'quantity' => $quantity, 'laser_minutes' => round($laserMinutes, 2),
             'unit_cost' => round($cost, 2), 'unit_price' => $unitPrice, 'total' => round($unitPrice * $quantity, 2),
             'customer_group' => $group, 'margin_percent' => $margin,

@@ -105,6 +105,7 @@
         const width = row.querySelector('.text-width');
         const height = row.querySelector('.text-height');
         const quantity = row.querySelector('.item-quantity');
+        const withBase = row.querySelector('.text-base-option:checked');
         const status = row.querySelector('.quote-text-status');
         const price = row.querySelector('.item-price');
         const cost = row.querySelector('.item-cost');
@@ -117,7 +118,7 @@
         try {
             const response = await fetch(form.dataset.textPriceUrl, {
                 method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': form.querySelector('[name="_token"]').value},
-                body: JSON.stringify({text_content: text.value, material_id: Number(material.value), finish: finish.value, color: color.value || null, width_cm: width.value ? Number(width.value) : null, height_cm: Number(height.value), quantity: Number(quantity.value), customer_id: document.querySelector('[name="customer_id"]').value || null}),
+                body: JSON.stringify({text_content: text.value, material_id: Number(material.value), finish: finish.value, color: color.value || null, with_base: Number(withBase?.value || 0), width_cm: width.value ? Number(width.value) : null, height_cm: Number(height.value), quantity: Number(quantity.value), customer_id: document.querySelector('[name="customer_id"]').value || null}),
             });
             if (!response.ok) throw new Error('Não foi possível calcular. Confira os limites e custos no configurador.');
             const result = await response.json();
@@ -198,7 +199,7 @@
                 row._displayTimer = setTimeout(() => row.querySelector('.item-kind').value === 'display' ? previewDisplay(row) : previewText(row), 300);
             });
         });
-        [row.querySelector('.text-content'), row.querySelector('.text-material'), row.querySelector('.text-finish'), row.querySelector('.text-color'), row.querySelector('.text-width'), row.querySelector('.text-height')].forEach(input => {
+        [row.querySelector('.text-content'), row.querySelector('.text-material'), row.querySelector('.text-finish'), row.querySelector('.text-color'), row.querySelector('.text-width'), row.querySelector('.text-height'), ...row.querySelectorAll('.text-base-option')].forEach(input => {
             input.addEventListener('input', () => {
                 row.querySelector('.text-color-field').hidden = row.querySelector('.text-finish').value !== 'painted';
                 row.querySelector('.text-color').required = row.querySelector('.text-finish').value === 'painted' && row.querySelector('.item-kind').value === 'text_cutout';

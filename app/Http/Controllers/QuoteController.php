@@ -33,6 +33,7 @@ class QuoteController extends Controller
             'text_content' => ['required', 'string', 'max:100'],
             'material_id' => ['required', 'exists:materials,id'],
             'finish' => ['required', 'in:natural,white,painted'],
+            'with_base' => ['nullable', 'in:0,1'],
             'color' => ['nullable', 'string', 'max:50'],
             'width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
             'height_cm' => ['required', 'numeric', 'min:1', 'decimal:0,1'],
@@ -255,6 +256,7 @@ class QuoteController extends Controller
             'items.*.text_content' => ['nullable', 'string', 'max:100'],
             'items.*.text_material_id' => ['nullable', 'exists:materials,id'],
             'items.*.text_finish' => ['nullable', 'in:natural,white,painted'],
+            'items.*.text_with_base' => ['nullable', 'in:0,1'],
             'items.*.text_color' => ['nullable', 'string', 'max:50'],
             'items.*.text_width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
             'items.*.text_height_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
@@ -296,6 +298,7 @@ class QuoteController extends Controller
                 $price = $this->calculateTextCutout([
                     'text_content' => $item['text_content'], 'material_id' => $item['text_material_id'],
                     'finish' => $item['text_finish'], 'color' => $item['text_color'] ?? null,
+                    'with_base' => $item['text_with_base'] ?? 0,
                     'height_cm' => $item['text_height_cm'], 'width_cm' => $item['text_width_cm'] ?? null,
                     'quantity' => $item['quantity'],
                 ], $customer);
@@ -303,7 +306,7 @@ class QuoteController extends Controller
                 $thickness = rtrim(rtrim(number_format($price['thickness_mm'], 2, ',', ''), '0'), ',');
                 $widthLabel = rtrim(rtrim(number_format($price['width_cm'], 1, ',', ''), '0'), ',');
                 $heightLabel = rtrim(rtrim(number_format($price['height_cm'], 1, ',', ''), '0'), ',');
-                $description = 'Nome/texto "'.$price['text'].'" · '.$price['material_name'].' '.$thickness.' mm · '.$price['finish_label'].' · '.$widthLabel.' × '.$heightLabel.' cm';
+                $description = 'Nome/texto "'.$price['text'].'" · '.$price['material_name'].' '.$thickness.' mm · '.$price['finish_label'].' · '.$price['base_label'].' · '.$widthLabel.' × '.$heightLabel.' cm';
                 if (mb_strlen($description) > 200) {
                     throw ValidationException::withMessages(["items.$index.text_content" => 'Texto e material geram uma descrição longa demais. Reduza o texto para caber na proposta.']);
                 }
@@ -332,7 +335,7 @@ class QuoteController extends Controller
             return $this->textPricing->quote(
                 $configurator, Material::findOrFail($data['material_id']), $data['text_content'],
                 (float) $data['height_cm'], isset($data['width_cm']) ? (float) $data['width_cm'] : null,
-                $data['finish'], $data['color'] ?? null, (int) $data['quantity'], $customer,
+                $data['finish'], $data['color'] ?? null, (int) $data['quantity'], $customer, (bool) ($data['with_base'] ?? false),
             );
         } catch (InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['text_cutout' => $exception->getMessage()]);

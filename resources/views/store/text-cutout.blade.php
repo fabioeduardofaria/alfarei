@@ -15,6 +15,7 @@
             <label>Material<select name="material_id" id="textMaterial" required><option value="">Escolha o material</option>@foreach($materials as $material)<option value="{{ $material->id }}">{{ $material->name }} · {{ $material->thickness_mm }} mm</option>@endforeach</select></label>
             <label>Acabamento<select name="finish" id="textFinish" required><option value="natural">Sem pintura (cor da chapa)</option><option value="white">Branco pintado</option><option value="painted">Pintado na cor escolhida</option></select></label>
             <label id="textColorField" hidden>Cor da pintura<input name="color" id="textColor" maxlength="50" placeholder="Ex.: rosa claro"></label>
+            <fieldset class="text-base-options"><legend>Como pretende usar?</legend><label><input type="radio" name="with_base" value="0" checked><span><b>Sem base</b><small>Para colar no painel ou na parede.</small></span></label><label><input type="radio" name="with_base" value="1"><span><b>Com base de apoio</b><small>Para deixar em pé sobre a mesa.</small></span></label></fieldset>
             <div class="display-store-dimensions">
                 <label>Altura final (cm)<input type="number" name="height_cm" id="textHeight" min="1" max="{{ $configurator->max_height_cm }}" step="0.1" inputmode="decimal" placeholder="Até {{ number_format($configurator->max_height_cm, 1, ',', '.') }}" required></label>
                 <label>Largura final (cm) <small>opcional</small><input type="number" name="width_cm" id="textWidth" min="1" max="{{ $configurator->max_width_cm }}" step="0.1" inputmode="decimal" placeholder="Estimada se ficar vazio"></label>
@@ -35,6 +36,7 @@
     const form = document.getElementById('textBuilder');
     const fields = ['textContent','textMaterial','textFinish','textColor','textHeight','textWidth','textQuantity'].map(id => document.getElementById(id));
     const [content, material, finish, color, height, width, quantity] = fields;
+    const baseChoices = [...form.querySelectorAll('[name="with_base"]')];
     const token = document.getElementById('textQuoteToken');
     const button = document.getElementById('textAddButton');
     const status = document.getElementById('textPriceStatus');
@@ -52,7 +54,7 @@
         }
         status.textContent = 'Calculando preço estimado...';
         try {
-            const response = await fetch(form.dataset.preview, {method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':form.querySelector('[name="_token"]').value},body:JSON.stringify({text:content.value,material_id:Number(material.value),finish:finish.value,color:color.value||null,height_cm:Number(height.value),width_cm:width.value?Number(width.value):null,quantity:Number(quantity.value)})});
+            const response = await fetch(form.dataset.preview, {method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':form.querySelector('[name="_token"]').value},body:JSON.stringify({text:content.value,material_id:Number(material.value),finish:finish.value,color:color.value||null,with_base:Number(form.querySelector('[name="with_base"]:checked').value),height_cm:Number(height.value),width_cm:width.value?Number(width.value):null,quantity:Number(quantity.value)})});
             if (!response.ok) throw new Error('Não foi possível calcular. Confira as medidas e tente novamente.');
             const result = await response.json();
             if (current !== requestId) return;
@@ -63,7 +65,7 @@
             button.disabled = false;
         } catch (error) { if (current === requestId) status.textContent = error.message; }
     }
-    fields.forEach(field => field.addEventListener('input', () => {
+    [...fields, ...baseChoices].forEach(field => field.addEventListener('input', () => {
         requestId++; token.value = ''; button.disabled = true;
         document.getElementById('textUnitPrice').textContent = '—';
         document.getElementById('textTotal').textContent = '—';
