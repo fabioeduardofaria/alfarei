@@ -27,7 +27,9 @@ class TextCutoutConfiguratorTest extends TestCase
         $response = $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertSee('Configurador de nomes e textos');
         $this->assertSame(23, substr_count($response->getContent(), 'class="field-tip"'));
         $response->assertSee('Ajuda: Tempo estimado para cortar um caractere', false);
+        $response->assertSee('Simular preço de nome ou texto');
         $this->put('/administracao/nomes-textos', $this->settings(['enabled' => 1]))->assertSessionHasErrors('enabled');
+        $this->post('/administracao/nomes-textos/simular', [])->assertSessionHasErrors('simulation');
         $this->get('/loja/nome-personalizado')->assertNotFound();
     }
 
@@ -46,6 +48,24 @@ class TextCutoutConfiguratorTest extends TestCase
         $this->assertGreaterThan($natural['unit_cost'], $acrylicQuote['unit_cost']);
         $this->assertSame('rosa', $painted['color']);
         $this->assertCount(1, $white['material_usage']);
+    }
+
+    public function test_admin_can_simulate_text_price_with_saved_parameters(): void
+    {
+        [, $mdf] = $this->configured();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertSee('Simular preço de nome ou texto');
+
+        $this->post('/administracao/nomes-textos/simular', [
+            'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'white',
+            'height_cm' => 10, 'width_cm' => 30, 'quantity' => 10,
+        ])->assertRedirect()->assertSessionHas('text_simulation', fn ($quote) => $quote['unit_price'] === 16.65 && $quote['total'] === 166.5);
+        $this->get('/administracao/nomes-textos')->assertOk()->assertSee('R$ 166,50')->assertSee('Custo unitário');
+
+        $this->post('/administracao/nomes-textos/simular', [
+            'text' => 'Aurora', 'material_id' => $mdf->id, 'finish' => 'painted',
+            'height_cm' => 10, 'quantity' => 1,
+        ])->assertSessionHasErrors('simulation');
     }
 
     public function test_admin_can_update_text_costs_without_changing_material_catalog(): void

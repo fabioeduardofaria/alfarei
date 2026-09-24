@@ -51,6 +51,38 @@
     <label class="display-enable"><input type="checkbox" name="enabled" value="1" @checked(old('enabled', $configurator->enabled))> Publicar o configurador na loja quando estiver completo <x-field-tip text="Quando ativado e com todos os parâmetros válidos, o cliente poderá montar e comprar nomes e textos na loja. Desativado, o configurador não aparece na vitrine."/></label>
     <div class="form-actions"><button class="primary" type="submit">Salvar parâmetros →</button></div>
 </form>
+<section class="panel display-admin-form text-simulator" id="simulador">
+    <div class="display-section-title"><h2>5. Simular preço de nome ou texto</h2><p>Teste uma peça usando os parâmetros já salvos. A simulação não cria orçamento nem publica o produto na loja.</p></div>
+    @if($missing !== [])
+        <div class="display-notice">Complete e salve os parâmetros acima para liberar a simulação. Você pode manter a publicação na loja desmarcada enquanto testa os preços.</div>
+    @else
+        <form method="POST" action="{{ route('texts.config.simulate') }}">@csrf
+            <div class="display-fields display-fields-three">
+                <label>Nome ou texto <x-field-tip text="Digite exatamente o texto a produzir. Espaços entram na largura estimada, mas não contam como caracteres de corte."/><input type="text" name="text" maxlength="100" value="{{ old('text', 'Aurora') }}" placeholder="Ex.: Aurora" required></label>
+                <label>Material <x-field-tip text="Escolha MDF ou acrílico cadastrado. O custo, a espessura e as dimensões da chapa vêm do cadastro do material."/><select name="material_id" required><option value="">Selecione</option>@foreach($materials as $material)<option value="{{ $material->id }}" @selected(old('material_id') == $material->id)>{{ $material->name }} · {{ $material->thickness_mm }} mm</option>@endforeach</select></label>
+                <label>Acabamento <x-field-tip text="Sem pintura mantém a cor da chapa. Branco pintado e pintura colorida usam os custos de acabamento configurados acima."/><select name="finish" id="textSimulationFinish"><option value="natural" @selected(old('finish', 'natural') === 'natural')>Sem pintura (cor da chapa)</option><option value="white" @selected(old('finish') === 'white')>Branco pintado</option><option value="painted" @selected(old('finish') === 'painted')>Pintado na cor escolhida</option></select></label>
+                <label id="textSimulationColorField" hidden>Cor da pintura <x-field-tip text="Informe a cor desejada quando escolher pintura colorida. A descrição aparecerá na simulação."/><input type="text" name="color" id="textSimulationColor" maxlength="50" value="{{ old('color') }}" placeholder="Ex.: rosa claro"></label>
+                <label>Altura final (cm) <x-field-tip text="Altura da peça pronta. Deve caber no limite salvo e na chapa do material escolhido."/><input type="number" name="height_cm" value="{{ old('height_cm', 10) }}" min="1" max="{{ $configurator->max_height_cm }}" step="0.1" required></label>
+                <label>Largura final (cm) · opcional <x-field-tip text="Se deixar vazio, o sistema estima a largura pelo texto e pela altura. Se informar uma largura, ela precisa ser plausível e caber na chapa."/><input type="number" name="width_cm" value="{{ old('width_cm') }}" min="1" max="{{ $configurator->max_width_cm }}" step="0.1" placeholder="Estimar automaticamente"></label>
+                <label>Quantidade <x-field-tip text="Número de peças iguais. A preparação da arte por pedido será dividida entre as unidades."/><input type="number" name="quantity" value="{{ old('quantity', 1) }}" min="1" max="100" required></label>
+            </div>
+            <div class="form-actions"><button class="primary" type="submit">Calcular simulação →</button></div>
+        </form>
+        @if($simulation = session('text_simulation'))
+            <div class="text-simulation-result" aria-live="polite">
+                <div class="text-simulation-heading"><div><small>SIMULAÇÃO · CLIENTE FINAL</small><h3>{{ $simulation['text'] }} · {{ $simulation['material_name'] }} {{ $simulation['thickness_mm'] }} mm</h3><p>{{ $simulation['finish_label'] }} · {{ number_format($simulation['width_cm'], 1, ',', '.') }} × {{ number_format($simulation['height_cm'], 1, ',', '.') }} cm @if($simulation['width_estimated']) · largura estimada @endif · {{ $simulation['quantity'] }} unidade(s)</p></div><strong>R$ {{ number_format($simulation['total'], 2, ',', '.') }}</strong></div>
+                <div class="text-simulation-breakdown">
+                    <span>Material <b>R$ {{ number_format($simulation['breakdown']['materialCost'], 2, ',', '.') }}</b></span>
+                    <span>Laser ({{ number_format($simulation['laser_minutes'], 2, ',', '.') }} min) <b>R$ {{ number_format($simulation['breakdown']['laserCost'], 2, ',', '.') }}</b></span>
+                    <span>Acabamento <b>R$ {{ number_format($simulation['breakdown']['finishCost'], 2, ',', '.') }}</b></span>
+                    <span>Base + embalagem + arte <b>R$ {{ number_format($simulation['breakdown']['base'] + $simulation['breakdown']['packaging'] + $simulation['breakdown']['setup'], 2, ',', '.') }}</b></span>
+                </div>
+                <p><b>Custo unitário:</b> R$ {{ number_format($simulation['unit_cost'], 2, ',', '.') }} <b>Preço unitário:</b> R$ {{ number_format($simulation['unit_price'], 2, ',', '.') }}</p>
+                <small>Preço estimado com as medidas informadas. A arte final precisa respeitá-las; se mudar, faça uma nova simulação.</small>
+            </div>
+        @endif
+    @endif
+</section>
 <script>
 (() => {
     const create = document.getElementById('textCreateProduct');
@@ -65,6 +97,20 @@
         field.hidden = !create.checked;
     };
     create.addEventListener('change', update);
+    update();
+})();
+(() => {
+    const finish = document.getElementById('textSimulationFinish');
+    if (!finish) return;
+    const color = document.getElementById('textSimulationColor');
+    const field = document.getElementById('textSimulationColorField');
+    const update = () => {
+        const painted = finish.value === 'painted';
+        field.hidden = !painted;
+        color.disabled = !painted;
+        color.required = painted;
+    };
+    finish.addEventListener('change', update);
     update();
 })();
 </script>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DisplayConfigurator;
 use App\Models\Machine;
+use App\Models\Material;
 use App\Models\Product;
 use App\Models\TextCutoutConfigurator;
 use App\Services\TextCutoutPricingService;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use InvalidArgumentException;
 
 class TextCutoutConfiguratorController extends Controller
 {
@@ -100,5 +102,36 @@ class TextCutoutConfiguratorController extends Controller
         });
 
         return back()->with('success', 'Parâmetros de nomes e textos atualizados.');
+    }
+
+    public function simulate(Request $request): RedirectResponse
+    {
+        $configurator = TextCutoutConfigurator::with(['product', 'laserMachine'])->first();
+        if (! $configurator || $this->pricing->missingRequirements($configurator) !== []) {
+            throw ValidationException::withMessages(['simulation' => 'Salve todos os parâmetros do configurador antes de simular.']);
+        }
+
+        $data = $request->validate([
+            'text' => ['required', 'string', 'max:100'],
+            'material_id' => ['required', 'exists:materials,id'],
+            'finish' => ['required', 'in:natural,white,painted'],
+            'color' => ['nullable', 'string', 'max:50'],
+            'height_cm' => ['required', 'numeric', 'min:1', 'decimal:0,1'],
+            'width_cm' => ['nullable', 'numeric', 'min:1', 'decimal:0,1'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        try {
+            $quote = $this->pricing->quote(
+                $configurator, Material::findOrFail($data['material_id']), $data['text'],
+                (float) $data['height_cm'], isset($data['width_cm']) ? (float) $data['width_cm'] : null,
+                $data['finish'], $data['color'] ?? null, (int) $data['quantity'],
+            );
+        } catch (InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['simulation' => $exception->getMessage()]);
+        }
+
+        return back()->withInput($request->only(['text', 'material_id', 'finish', 'color', 'height_cm', 'width_cm', 'quantity']))
+            ->with('text_simulation', $quote);
     }
 }

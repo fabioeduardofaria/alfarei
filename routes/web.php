@@ -76,6 +76,7 @@ Route::middleware('auth')->group(function () {
     Route::post('administracao/displays/simular', [DisplayConfiguratorController::class, 'simulate'])->middleware('access:store_settings')->name('displays.config.simulate');
     Route::get('administracao/nomes-textos', [TextCutoutConfiguratorController::class, 'edit'])->middleware('access:store_settings')->name('texts.config.edit');
     Route::put('administracao/nomes-textos', [TextCutoutConfiguratorController::class, 'update'])->middleware('access:store_settings')->name('texts.config.update');
+    Route::post('administracao/nomes-textos/simular', [TextCutoutConfiguratorController::class, 'simulate'])->middleware('access:store_settings')->name('texts.config.simulate');
     Route::resource('clientes', CustomerController::class)->except('show', 'destroy')->middleware('access:customers');
     Route::get('revendedores', [ResellerProgramController::class, 'index'])->middleware('access:customers')->name('revendedores.index');
     Route::get('revendedores/solicitacoes/{application}', [ResellerProgramController::class, 'show'])->middleware('access:customers')->name('revendedores.show');
