@@ -79,7 +79,11 @@ class StoreAccountController extends Controller
             return redirect()->route('loja.account.login');
         }
 
-        return view('store.account.profile', array_merge($this->viewData(), ['customer' => Auth::guard('customer')->user()]));
+        $customer = Auth::guard('customer')->user();
+        $digitalOrders = $customer->orders()->whereHas('items', fn ($query) => $query->where('type', 'virtual'))
+            ->with(['items' => fn ($query) => $query->where('type', 'virtual')])->latest()->get();
+
+        return view('store.account.profile', array_merge($this->viewData(), compact('customer', 'digitalOrders')));
     }
 
     public function changePassword(Request $request): RedirectResponse

@@ -39,7 +39,7 @@
         <label class="catalog-sort">Ordenar <select name="ordenar" onchange="this.form.submit()"><option value="destaques" @selected($sort === 'destaques')>Destaques</option><option value="recentes" @selected($sort === 'recentes')>Novidades</option><option value="menor-preco" @selected($sort === 'menor-preco')>Menor preço</option><option value="maior-preco" @selected($sort === 'maior-preco')>Maior preço</option></select></label>
     </form>
     <div class="catalog-filters" aria-label="Filtrar catálogo">
-        @foreach(['' => 'Todos', 'presente' => 'Presentes', 'decoracao' => 'Decoração', 'empresa' => 'Empresas', 'personalizavel' => 'Personalizáveis', 'pronta-entrega' => 'Pronta entrega'] as $key => $label)
+        @foreach(['' => 'Todos', 'presente' => 'Presentes', 'decoracao' => 'Decoração', 'empresa' => 'Empresas', 'personalizavel' => 'Personalizáveis', 'pronta-entrega' => 'Pronta entrega', 'arquivos-digitais' => 'Arquivos digitais'] as $key => $label)
             <a href="{{ route('loja.index', array_filter(['uso' => $key ?: null, 'busca' => $search ?: null, 'ordenar' => $sort !== 'destaques' ? $sort : null])) }}#catalogo" @class(['active' => ($intent ?? '') === $key]) @if(($intent ?? '') === $key) aria-current="page" @endif>{{ $label }}</a>
         @endforeach
     </div>

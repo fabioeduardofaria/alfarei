@@ -286,6 +286,7 @@ class ExampleTest extends TestCase
         $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Produção', 'customer_group' => 'final']);
         Machine::create(['name' => 'Laser teste', 'code' => 'LASER-TESTE', 'type' => 'laser_co2', 'hourly_cost' => 50, 'status' => 'available', 'active' => true]);
         $order = Order::create(['number' => 'PED-2026-9999', 'customer_id' => $customer->id, 'created_by' => $user->id, 'status' => 'ready_for_production', 'source' => 'quote', 'total' => 200, 'cost_total' => 80, 'deposit_amount' => 100]);
+        OrderItem::create(['order_id' => $order->id, 'description' => 'Peça física', 'type' => 'product', 'quantity' => 1, 'unit_price' => 200, 'unit_cost' => 80, 'total' => 200, 'total_cost' => 80]);
 
         $workflow = app(ProductionWorkflowService::class);
         $production = $workflow->createFromOrder($order, $user->id);
@@ -348,6 +349,7 @@ class ExampleTest extends TestCase
         $customer = Customer::create(['type' => 'PF', 'name' => 'Cliente Retirada', 'phone' => '(65) 99999-1111', 'customer_group' => 'final']);
         Machine::create(['name' => 'Laser finalização', 'code' => 'LASER-FINAL', 'type' => 'laser_co2', 'hourly_cost' => 50, 'status' => 'available', 'active' => true]);
         $order = Order::create(['number' => 'PED-2026-PRONTO', 'customer_id' => $customer->id, 'created_by' => $user->id, 'status' => 'ready_for_production', 'source' => 'ecommerce', 'delivery_method' => 'pickup', 'total' => 200, 'cost_total' => 80, 'deposit_amount' => 100]);
+        OrderItem::create(['order_id' => $order->id, 'description' => 'Peça física', 'type' => 'product', 'quantity' => 1, 'unit_price' => 200, 'unit_cost' => 80, 'total' => 200, 'total_cost' => 80]);
 
         $workflow = app(ProductionWorkflowService::class);
         $production = $workflow->createFromOrder($order, $user->id);

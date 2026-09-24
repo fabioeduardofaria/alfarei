@@ -13,6 +13,7 @@ class CustomerNotificationService
         'production_started' => 'Produção iniciada',
         'ready' => 'Pedido pronto',
         'shipped' => 'Despacho ou retirada',
+        'digital_ready' => 'Arquivo digital liberado',
     ];
 
     public function queue(Order $order, string $event): CustomerNotification
@@ -28,7 +29,10 @@ class CustomerNotificationService
         $pixKey = $settings->pix_key ?: 'consulte a Alfarei para receber a chave PIX';
 
         $message = match ($event) {
-            'order_created' => "Olá, {$name}! Recebemos o pedido {$order->number}.\n\nA entrada para iniciar a produção é de R$ ".number_format((float) $order->deposit_amount, 2, ',', '.').". O pagamento está pendente via PIX.\nChave PIX: {$pixKey}\n\nApós a confirmação, daremos sequência ao seu pedido. Acompanhe por aqui: {$trackingUrl}",
+            'order_created' => $order->items()->where('type', 'virtual')->exists()
+                ? "Olá, {$name}! Recebemos o pedido {$order->number}.\n\nO pagamento integral de R$ ".number_format((float) $order->deposit_amount, 2, ',', '.')." está pendente via PIX.\nChave PIX: {$pixKey}\n\nOs arquivos digitais serão liberados em sua conta após a confirmação. Acompanhe por aqui: {$trackingUrl}"
+                : "Olá, {$name}! Recebemos o pedido {$order->number}.\n\nA entrada para iniciar a produção é de R$ ".number_format((float) $order->deposit_amount, 2, ',', '.').". O pagamento está pendente via PIX.\nChave PIX: {$pixKey}\n\nApós a confirmação, daremos sequência ao seu pedido. Acompanhe por aqui: {$trackingUrl}",
+            'digital_ready' => "Olá, {$name}! O pagamento do pedido {$order->number} foi confirmado. Seu arquivo digital já pode ser baixado com segurança em sua conta da loja: {$baseUrl}/loja/minha-conta",
             'production_started' => "Olá, {$name}! A produção do seu pedido {$order->number} foi iniciada. Nossa equipe já está trabalhando nele.\n\nAcompanhe o andamento: {$trackingUrl}",
             'ready' => $order->delivery_method === 'pickup'
                 ? "Olá, {$name}! Seu pedido {$order->number} está pronto para retirada na Alfarei. Entre em contato para combinarmos o melhor horário.\n\nAcompanhe: {$trackingUrl}"

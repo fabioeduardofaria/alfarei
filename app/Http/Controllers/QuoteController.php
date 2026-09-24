@@ -201,7 +201,7 @@ class QuoteController extends Controller
 
         return view('quotes.form', [
             'quote' => $quote, 'customers' => Customer::where('active', true)->orderBy('name')->get(),
-            'products' => Product::where('active', true)->orderBy('name')->get(),
+            'products' => Product::where('active', true)->where('type', '!=', 'virtual')->orderBy('name')->get(),
             'displayConfigurator' => $configurator && $this->displayPricing->missingRequirements($configurator) === [] ? $configurator : null,
             'textConfigurator' => $textConfigurator && $this->textPricing->missingRequirements($textConfigurator) === [] ? $textConfigurator : null,
             'textMaterials' => $this->textPricing->eligibleMaterials(),
@@ -318,6 +318,8 @@ class QuoteController extends Controller
                 ]);
             } elseif (! isset($item['description'], $item['unit_price'], $item['unit_cost']) || trim($item['description']) === '' || (($item['kind'] ?? null) === 'product' && empty($item['product_id']))) {
                 throw ValidationException::withMessages(["items.$index.description" => 'Complete a descrição, o produto e os valores deste item.']);
+            } elseif (($item['kind'] ?? null) === 'product' && Product::whereKey($item['product_id'])->where('type', 'virtual')->exists()) {
+                throw ValidationException::withMessages(["items.$index.product_id" => 'Arquivos digitais são vendidos pela loja para garantir o acesso seguro ao download.']);
             }
         }
         unset($item);

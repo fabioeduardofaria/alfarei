@@ -15,9 +15,34 @@ class Order extends Model
         return ['total' => 'decimal:2', 'cost_total' => 'decimal:2', 'deposit_amount' => 'decimal:2', 'deposit_paid_at' => 'datetime', 'art_approved_at' => 'datetime', 'shipped_at' => 'datetime', 'delivered_at' => 'datetime'];
     }
 
-    public function quote(): BelongsTo { return $this->belongsTo(Quote::class); }
-    public function customer(): BelongsTo { return $this->belongsTo(Customer::class); }
-    public function items(): HasMany { return $this->hasMany(OrderItem::class); }
-    public function payments(): HasMany { return $this->hasMany(Payment::class); }
-    public function notifications(): HasMany { return $this->hasMany(CustomerNotification::class); }
+    public function digitalDownloadReady(): bool
+    {
+        return $this->status !== 'cancelled' && $this->deposit_paid_at !== null &&
+            (int) round((float) $this->deposit_amount * 100) >= (int) round((float) $this->total * 100);
+    }
+
+    public function quote(): BelongsTo
+    {
+        return $this->belongsTo(Quote::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(CustomerNotification::class);
+    }
 }

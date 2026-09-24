@@ -13,6 +13,8 @@ class TechnicalSheetController extends Controller
 {
     public function edit(Product $produto): View
     {
+        abort_if($produto->type === 'virtual', 404);
+
         return view('products.technical-sheet', [
             'product' => $produto->load('materials', 'machineOperations'),
             'materials' => Material::where('active', true)->orderBy('name')->get(),
@@ -22,6 +24,7 @@ class TechnicalSheetController extends Controller
 
     public function update(Request $request, Product $produto): RedirectResponse
     {
+        abort_if($produto->type === 'virtual', 404);
         $data = $request->validate([
             'materials' => ['nullable', 'array'], 'materials.*.material_id' => ['required', 'distinct', 'exists:materials,id'],
             'materials.*.quantity' => ['required', 'numeric', 'gt:0'], 'materials.*.loss_percent' => ['required', 'numeric', 'min:0', 'max:100'],

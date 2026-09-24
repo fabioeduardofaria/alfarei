@@ -1,8 +1,8 @@
 @php($offer = $pricing->offer($product, $storeCustomer))
 <article class="store-product">
-    <a href="{{ route('loja.product', $product) }}" class="product-visual" aria-label="Ver {{ $product->name }}" @if($product->image_url) style="background-image:url('{{ $product->image_url }}')" @endif><span>{{ $product->allow_personalization ? 'Personalizável' : 'Produção Alfarei' }}</span>@unless($product->image_url)<b>{{ strtoupper(substr($product->name, 0, 1)) }}</b>@endunless</a>
+    <a href="{{ route('loja.product', $product) }}" class="product-visual" aria-label="Ver {{ $product->name }}" @if($product->image_url) style="background-image:url('{{ $product->image_url }}')" @endif><span>{{ $product->type === 'virtual' ? 'Arquivo digital' : ($product->allow_personalization ? 'Personalizável' : 'Produção Alfarei') }}</span>@unless($product->image_url)<b>{{ strtoupper(substr($product->name, 0, 1)) }}</b>@endunless</a>
     <div>
-        <p>{{ $product->made_to_order ? 'Sob encomenda' : 'Disponível' }}</p><h3>{{ $product->name }}</h3><small>{{ Str::limit($product->description, 82) }}</small>
+        <p>{{ $product->type === 'virtual' ? 'Download após pagamento' : ($product->made_to_order ? 'Sob encomenda' : 'Disponível') }}</p><h3>{{ $product->name }}</h3><small>{{ Str::limit($product->description, 82) }}</small>
         @if(isset($displayConfigurator) && $displayConfigurator?->product_id === $product->id)
             <strong>Sob medida · calcule o seu preço</strong>
         @elseif(isset($textConfigurator) && $textConfigurator?->product_id === $product->id)

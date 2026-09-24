@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\FinanceEntry;
 use App\Models\FinancePayment;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Supplier;
+use App\Services\CustomerNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -149,8 +151,9 @@ class FinanceController extends Controller
             'receipt' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
         ]);
         $storedPath = null;
+        $digitalReleasedOrderId = null;
         try {
-            DB::transaction(function () use ($request, $lancamento, $data, &$storedPath) {
+            DB::transaction(function () use ($request, $lancamento, $data, &$storedPath, &$digitalReleasedOrderId) {
                 $entry = FinanceEntry::whereKey($lancamento->id)->lockForUpdate()->firstOrFail();
                 if (! in_array($entry->status, ['pending', 'partial'], true)) {
                     throw ValidationException::withMessages(['amount' => 'Esta conta não possui saldo em aberto.']);
@@ -185,8 +188,12 @@ class FinanceController extends Controller
                         }
                         $order = $orderPayment->order;
                         if ($orderPayment->type === 'deposit' && $order?->status === 'awaiting_deposit') {
+                            $onlyDigital = $order->items()->where('type', 'virtual')->exists() && ! $order->items()->where('type', '!=', 'virtual')->exists();
                             $needsArt = $order->items()->where('made_to_order', true)->exists();
-                            $order->update(['deposit_paid_at' => $paymentDate, 'status' => $needsArt ? 'awaiting_art' : 'ready_for_production']);
+                            $order->update(['deposit_paid_at' => $paymentDate, 'status' => $onlyDigital ? 'delivered' : ($needsArt ? 'awaiting_art' : 'ready_for_production'), 'delivered_at' => $onlyDigital ? now() : null]);
+                            if ($order->items()->where('type', 'virtual')->exists() && $order->digitalDownloadReady()) {
+                                $digitalReleasedOrderId = $order->id;
+                            }
                         }
                     }
                 }
@@ -196,6 +203,9 @@ class FinanceController extends Controller
                 Storage::disk('local')->delete($storedPath);
             }
             throw $e;
+        }
+        if ($digitalReleasedOrderId) {
+            app(CustomerNotificationService::class)->queue(Order::findOrFail($digitalReleasedOrderId), 'digital_ready');
         }
 
         return redirect()->route('financeiro.show', $lancamento)->with('success', 'Pagamento ou recebimento registrado.');

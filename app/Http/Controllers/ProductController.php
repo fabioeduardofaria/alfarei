@@ -8,7 +8,9 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProductController extends Controller
 {
@@ -88,12 +90,19 @@ class ProductController extends Controller
         return back()->with('success', 'Fotos atualizadas com sucesso.');
     }
 
+    public function downloadDigital(Product $produto): StreamedResponse
+    {
+        abort_unless(is_string($produto->digital_file_path) && str_starts_with($produto->digital_file_path, 'digital-products/') && ! str_contains($produto->digital_file_path, '..') && Storage::disk('local')->exists($produto->digital_file_path), 404);
+
+        return Storage::disk('local')->download($produto->digital_file_path, $produto->digital_file_name, ['Content-Type' => 'application/octet-stream', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
     private function validated(Request $request, ?Product $product = null): array
     {
         $skuRule = 'unique:products,sku'.($product ? ','.$product->id : '');
         $data = $request->validate([
             'sku' => ['nullable', 'string', 'max:60', $skuRule], 'name' => ['required', 'string', 'max:150'],
-            'type' => ['required', 'in:product,service'], 'base_price' => ['required', 'numeric', 'min:0'],
+            'type' => ['required', 'in:product,service,virtual'], 'base_price' => ['required', 'numeric', 'min:0'],
             'production_cost' => ['required', 'numeric', 'min:0'], 'made_to_order' => ['boolean'],
             'active' => ['boolean'], 'description' => ['nullable', 'string', 'max:3000'], 'store_visible' => ['boolean'],
             'store_slug' => ['nullable', 'string', 'max:180', 'unique:products,store_slug'.($product ? ','.$product->id : '')],
@@ -110,7 +119,26 @@ class ProductController extends Controller
             'wholesale_price' => ['nullable', 'required_with:wholesale_min_quantity', 'numeric', 'min:0', 'lte:base_price'],
             'wholesale_min_quantity' => ['nullable', 'required_with:wholesale_price', 'integer', 'min:1', 'max:100'],
             'images' => ['nullable', 'array', 'max:8'], 'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'digital_file' => ['nullable', 'file', 'max:51200', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! in_array(Str::lower($value->getClientOriginalExtension()), ['dxf', 'svg', 'zip'], true)) {
+                    $fail('Envie um arquivo DXF, SVG ou ZIP.');
+                }
+            }],
+            'digital_version' => ['nullable', 'string', 'max:40'],
+            'digital_license_terms' => ['nullable', 'string', 'max:3000'],
         ]);
+        if ($data['type'] === 'virtual') {
+            $data['made_to_order'] = false;
+            $data['allow_personalization'] = false;
+            if ($data['store_visible'] && ! ($request->hasFile('digital_file') || ($product?->digital_file_path && Storage::disk('local')->exists($product->digital_file_path)))) {
+                throw ValidationException::withMessages(['digital_file' => 'Envie o arquivo antes de mostrar o produto virtual na loja.']);
+            }
+            if ($data['store_visible'] && (blank($data['digital_version'] ?? null) || blank($data['digital_license_terms'] ?? null))) {
+                throw ValidationException::withMessages(['digital_license_terms' => 'Informe a versão e os termos de uso antes de publicar o arquivo.']);
+            }
+        } elseif ($request->hasFile('digital_file')) {
+            throw ValidationException::withMessages(['digital_file' => 'Selecione Produto virtual para enviar um arquivo digital.']);
+        }
         $data['store_occasions'] = array_values(array_unique($data['store_occasions'] ?? []));
         if ($request->hasFile('image')) {
             if ($product && Str::startsWith((string) $product->image_url, '/storage/')) {
@@ -118,7 +146,14 @@ class ProductController extends Controller
             }
             $data['image_url'] = Storage::url($request->file('image')->store('products', 'public'));
         }
-        unset($data['image'], $data['images']);
+        if ($request->hasFile('digital_file')) {
+            $file = $request->file('digital_file');
+            $data['digital_file_path'] = $file->store('digital-products', 'local');
+            $data['digital_file_name'] = basename(str_replace('\\', '/', $file->getClientOriginalName()));
+            $data['digital_file_size'] = $file->getSize();
+            $data['digital_file_sha256'] = hash_file('sha256', $file->getRealPath());
+        }
+        unset($data['image'], $data['images'], $data['digital_file']);
 
         return $data;
     }

@@ -33,7 +33,7 @@ class OrderController extends Controller
         if ($pedido->status !== 'awaiting_deposit') {
             return back()->with('success', 'A entrada deste pedido já foi tratada.');
         }
-        $needsArt = DB::transaction(function () use ($pedido) {
+        $nextStatus = DB::transaction(function () use ($pedido) {
             $order = Order::whereKey($pedido->id)->lockForUpdate()->firstOrFail();
             if ($order->status !== 'awaiting_deposit') {
                 return null;
@@ -48,16 +48,26 @@ class OrderController extends Controller
                 }
                 $entry->update(['status' => 'paid', 'paid_amount' => $entry->amount, 'paid_at' => now(), 'payment_method' => 'manual']);
             }
+            $onlyDigital = $order->items()->where('type', 'virtual')->exists() && ! $order->items()->where('type', '!=', 'virtual')->exists();
             $needsArt = $order->items()->where('made_to_order', true)->exists();
-            $order->update(['deposit_paid_at' => now(), 'status' => $needsArt ? 'awaiting_art' : 'ready_for_production']);
+            $status = $onlyDigital ? 'delivered' : ($needsArt ? 'awaiting_art' : 'ready_for_production');
+            $order->update(['deposit_paid_at' => now(), 'status' => $status, 'delivered_at' => $onlyDigital ? now() : null]);
 
-            return $needsArt;
+            return $status;
         });
-        if ($needsArt === null) {
+        if ($nextStatus === null) {
             return back()->with('success', 'A entrada deste pedido já foi tratada.');
         }
 
-        return back()->with('success', $needsArt ? 'Entrada confirmada. O pedido aguarda aprovação de arte.' : 'Entrada confirmada. Pedido liberado para produção.');
+        if ($pedido->items()->where('type', 'virtual')->exists() && $pedido->fresh()->digitalDownloadReady()) {
+            $this->notifications->queue($pedido, 'digital_ready');
+        }
+
+        if ($nextStatus === 'delivered') {
+            return back()->with('success', 'Pagamento integral confirmado. Arquivos disponíveis na conta do cliente.');
+        }
+
+        return back()->with('success', $nextStatus === 'awaiting_art' ? 'Entrada confirmada. O pedido aguarda aprovação de arte.' : 'Entrada confirmada. Pedido liberado para produção.');
     }
 
     public function approveArt(Order $pedido): RedirectResponse

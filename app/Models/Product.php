@@ -6,12 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['sku', 'name', 'type', 'base_price', 'production_cost', 'made_to_order', 'active', 'description', 'store_visible', 'store_slug', 'image_url', 'allow_personalization', 'store_occasions', 'store_featured', 'reseller_price', 'reseller_min_quantity', 'wholesale_price', 'wholesale_min_quantity'];
+    protected $fillable = ['sku', 'name', 'type', 'base_price', 'production_cost', 'made_to_order', 'active', 'description', 'store_visible', 'store_slug', 'image_url', 'allow_personalization', 'store_occasions', 'store_featured', 'reseller_price', 'reseller_min_quantity', 'wholesale_price', 'wholesale_min_quantity', 'digital_file_path', 'digital_file_name', 'digital_file_size', 'digital_file_sha256', 'digital_version', 'digital_license_terms'];
 
     protected function casts(): array
     {
@@ -33,6 +34,12 @@ class Product extends Model
     public function images(): HasMany
     {
         return $this->hasMany(ProductImage::class)->orderBy('sort_order');
+    }
+
+    public function isSellableInStore(): bool
+    {
+        return $this->active && $this->store_visible && ($this->type !== 'virtual' ||
+            ($this->digital_file_path && $this->digital_license_terms && Storage::disk('local')->exists($this->digital_file_path)));
     }
 
     public function calculatedProductionCost(): float

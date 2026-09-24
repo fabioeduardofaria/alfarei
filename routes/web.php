@@ -5,6 +5,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerNotificationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\DigitalDownloadController;
 use App\Http\Controllers\DisplayConfiguratorController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\LeadController;
@@ -52,6 +53,7 @@ Route::get('loja/cadastrar', [StoreAccountController::class, 'registerForm'])->n
 Route::post('loja/cadastrar', [StoreAccountController::class, 'register'])->middleware('throttle:6,1')->name('loja.account.register.store');
 Route::post('loja/sair', [StoreAccountController::class, 'logout'])->name('loja.account.logout');
 Route::get('loja/minha-conta', [StoreAccountController::class, 'account'])->name('loja.account.profile');
+Route::get('loja/arquivos/{item}/baixar', DigitalDownloadController::class)->middleware('throttle:20,1')->name('loja.digital.download');
 Route::put('loja/minha-conta/senha', [StoreAccountController::class, 'changePassword'])->middleware('throttle:6,1')->name('loja.account.password');
 Route::get('loja/revenda', [ResellerApplicationController::class, 'show'])->name('loja.reseller.show');
 Route::post('loja/revenda', [ResellerApplicationController::class, 'store'])->middleware('throttle:6,1')->name('loja.reseller.store');
@@ -111,6 +113,7 @@ Route::middleware('auth')->group(function () {
     Route::get('financeiro/{lancamento}/pagamentos/{payment}/comprovante', [FinanceController::class, 'receipt'])->middleware('access:finance')->name('financeiro.receipt');
     Route::post('financeiro/{lancamento}/cancelar', [FinanceController::class, 'cancel'])->middleware('access:finance')->name('financeiro.cancel');
     Route::resource('produtos', ProductController::class)->except('show', 'destroy')->middleware('access:products');
+    Route::get('produtos/{produto}/arquivo', [ProductController::class, 'downloadDigital'])->middleware('access:products')->name('produtos.digital.download');
     Route::post('produtos/{produto}/fotos', [ProductController::class, 'storeImages'])->middleware('access:products')->name('produtos.images.store');
     Route::delete('produtos/{produto}/foto-principal', [ProductController::class, 'destroyMainImage'])->middleware('access:products')->name('produtos.main-image.destroy');
     Route::delete('produtos/{produto}/fotos/{foto}', [ProductController::class, 'destroyImage'])->middleware('access:products')->name('produtos.images.destroy');

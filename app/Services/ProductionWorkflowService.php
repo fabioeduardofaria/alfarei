@@ -24,12 +24,14 @@ class ProductionWorkflowService
                 return $existing;
             }
             $order->loadMissing('items');
-            $plannedLaserMinutes = $order->items->sum(fn ($item) => $item->configuration_snapshot ? (float) ($item->configuration_snapshot['laser_minutes'] ?? 0) * (float) $item->quantity : 0);
+            $physicalItems = $order->items->where('type', '!=', 'virtual');
+            abort_if($physicalItems->isEmpty(), 409, 'Pedidos apenas digitais não geram ordem de produção.');
+            $plannedLaserMinutes = $physicalItems->sum(fn ($item) => $item->configuration_snapshot ? (float) ($item->configuration_snapshot['laser_minutes'] ?? 0) * (float) $item->quantity : 0);
             $machine = Machine::where('active', true)->where('status', 'available')->orderBy('id')->first();
             $production = ProductionOrder::create([
                 'number' => sprintf('OP-%s-%04d', now()->format('Y'), ProductionOrder::count() + 1),
                 'order_id' => $order->id, 'machine_id' => $machine?->id, 'created_by' => $userId,
-                'status' => 'awaiting', 'planned_minutes' => max(30, $order->items->count() * 45, (int) ceil($plannedLaserMinutes)),
+                'status' => 'awaiting', 'planned_minutes' => max(30, $physicalItems->count() * 45, (int) ceil($plannedLaserMinutes)),
             ]);
             $production->events()->create(['user_id' => $userId, 'type' => 'created', 'to_status' => 'awaiting', 'notes' => 'OP criada a partir do pedido '.$order->number]);
             $this->inventory->reserveFor($production);

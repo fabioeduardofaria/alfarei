@@ -9,7 +9,7 @@
                 @foreach($lines as $line)
                     <div>
                         <span class="cart-thumb">{{ strtoupper(substr($line->product->name, 0, 1)) }}</span>
-                        <p><b>{{ $line->product->name }}</b><small>@if($line->configurationSnapshot){{ $line->configurationSnapshot['size_label'] }} · {{ $line->configurationSnapshot['width_cm'] }} × {{ $line->configurationSnapshot['height_cm'] }} cm<br>@endif{{ $line->quantity }} × R$ {{ number_format($line->unitPrice, 2, ',', '.') }}
+                        <p><b>{{ $line->product->name }}</b><small>@if($line->configurationSnapshot){{ $line->configurationSnapshot['size_label'] }} · {{ $line->configurationSnapshot['width_cm'] }} × {{ $line->configurationSnapshot['height_cm'] }} cm<br>@endif @if($line->digitalSnapshot)Arquivo digital · versão {{ $line->digitalSnapshot['digital_version'] }} · download após pagamento<br>@endif{{ $line->quantity }} × R$ {{ number_format($line->unitPrice, 2, ',', '.') }}
                             @if($line->personalization)<br>{{ $line->personalization }}@endif
                         </small>@if(! $line->configurationSnapshot && $line->unitPrice < (float) $line->product->base_price)<small class="tier-applied">Preço {{ $storeCustomer?->customer_group === 'reseller' ? 'revendedor' : 'atacado' }} ativado · economia de R$ {{ number_format(((float) $line->product->base_price - $line->unitPrice) * $line->quantity, 2, ',', '.') }}</small>@endif</p>
                         <strong>R$ {{ number_format($line->total, 2, ',', '.') }}</strong>
@@ -17,7 +17,7 @@
                     </div>
                 @endforeach
             </article>
-            <aside class="cart-summary"><span>Resumo do pedido</span><p><b>Total</b><strong>R$ {{ number_format($lines->sum('total'), 2, ',', '.') }}</strong></p><small>A entrada de {{ number_format($settings->deposit_percent, 0, ',', '.') }}% é solicitada após a confirmação comercial.</small><a class="store-primary" href="{{ route('loja.checkout') }}">Ir para checkout →</a></aside>
+            <aside class="cart-summary"><span>Resumo do pedido</span><p><b>Total</b><strong>R$ {{ number_format($lines->sum('total'), 2, ',', '.') }}</strong></p><small>@if($lines->contains(fn ($line) => $line->product->type === 'virtual'))O carrinho inclui arquivo digital: pagamento integral e download na conta após a confirmação.@else A entrada de {{ number_format($settings->deposit_percent, 0, ',', '.') }}% é solicitada após a confirmação comercial.@endif</small><a class="store-primary" href="{{ route('loja.checkout') }}">Ir para checkout →</a></aside>
         </div>
     @else
         <div class="empty-store"><p>Seu carrinho está vazio.</p><a class="store-primary" href="{{ route('loja.index') }}">Explorar produtos</a></div>
