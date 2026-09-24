@@ -1,0 +1,10 @@
+.material-category-field{min-width:0;font-size:11px;font-weight:bold;color:#39483f}
+.material-category-picker{display:flex;align-items:stretch;gap:8px;margin-top:5px}
+.material-category-picker select,.material-category-picker input{min-width:0;flex:1;margin-top:0}
+.material-category-picker button{flex:none;white-space:nowrap}
+.material-category-help{margin:6px 0 0;font-size:10px;font-weight:normal;color:#77867b}
+.material-category-create{margin-top:10px;padding:12px;border:1px solid #dce6dc;border-radius:6px;background:#f8faf7}
+.material-category-create[hidden]{display:none}
+.material-category-status{margin:8px 0 0;min-height:14px;font-size:10px;font-weight:normal;color:#357255}
+.material-category-status.is-error{color:#ad4d44}
+@media(max-width:530px){.material-category-picker{flex-wrap:wrap}.material-category-picker select,.material-category-picker input{flex-basis:100%}.material-category-picker button{width:100%}}
