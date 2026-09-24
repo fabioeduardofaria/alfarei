@@ -5,11 +5,18 @@
 @if($missing)<div class="display-notice"><b>Configuração incompleta: ainda não será oferecida na loja nem no orçamento automático.</b><ul>@foreach($missing as $requirement)<li>{{ $requirement }}</li>@endforeach</ul></div>@endif
 @if($errors->any())<div class="display-errors" role="alert">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
 <form class="panel display-admin-form text-config-form" method="POST" action="{{ route('texts.config.update') }}">@csrf @method('PUT')
-    <div class="display-section-title"><h2>1. Produto e máquina</h2><p>Os materiais são lidos automaticamente do cadastro: apenas MDF e acrílico ativos, com espessura, medidas e custo válidos.</p></div>
+    <div class="display-section-title"><h2>1. Produto e máquina</h2><p>Este configurador precisa de um produto próprio. O produto usado pelos displays não aparece na lista. Os materiais são lidos automaticamente do cadastro.</p></div>
     <div class="display-fields">
-        <label>Produto da loja<x-field-tip text="Produto cadastrado que representará este configurador na vitrine e nos pedidos. Deve estar ativo, visível na loja e marcado como produzido sob encomenda."/><select name="product_id"><option value="">Selecione</option>@foreach($products as $product)<option value="{{ $product->id }}" @selected(old('product_id', $configurator->product_id) == $product->id)>{{ $product->name }}</option>@endforeach</select></label>
+        <label>Produto da loja<x-field-tip text="Produto exclusivo que representará nomes e textos na vitrine e nos pedidos. Produtos já usados pelo configurador de displays não podem ser escolhidos."/><select id="textProductSelect" name="product_id"><option value="">Selecione um produto existente</option>@foreach($products as $product)<option value="{{ $product->id }}" @selected(old('product_id', $configurator->product_id) == $product->id)>{{ $product->name }}</option>@endforeach</select></label>
         <label>Máquina laser<x-field-tip text="Máquina cujo custo por hora será usado no cálculo do corte. Cadastre e atualize seus custos em Máquinas e custos."/><select name="laser_machine_id"><option value="">Selecione</option>@foreach($machines as $machine)<option value="{{ $machine->id }}" @selected(old('laser_machine_id', $configurator->laser_machine_id) == $machine->id)>{{ $machine->name }} · R$ {{ number_format($machine->calculatedHourlyCost() ?: $machine->hourly_cost, 2, ',', '.') }}/h</option>@endforeach</select></label>
     </div>
+    @unless($configurator->product_id)
+    <div class="text-config-create-product">
+        <label class="text-config-create-option"><input id="textCreateProduct" type="checkbox" name="create_product" value="1" @checked(old('create_product'))> <span>Criar um produto exclusivo para nomes e textos</span> <x-field-tip text="Marque esta opção se ainda não tiver um produto próprio. Ao salvar, o sistema cria um produto sob encomenda, ativo e visível na loja, e o vincula automaticamente a este configurador."/></label>
+        <label class="text-config-new-name" id="textNewProductField">Nome do novo produto <x-field-tip text="Nome que o cliente verá na loja, no carrinho e no pedido. Exemplo: Nome ou texto personalizado."/><input id="textNewProductName" type="text" name="new_product_name" value="{{ old('new_product_name', 'Nome ou texto personalizado') }}" maxlength="150" placeholder="Ex.: Nome ou texto personalizado"></label>
+        <small>Se marcar a criação, o novo produto será usado no lugar do selecionado acima. Ele só será criado se todos os dados forem salvos com sucesso.</small>
+    </div>
+    @endunless
     <div class="text-config-materials"><b>Materiais elegíveis</b><p>@forelse($materials as $material)<span>{{ $material->name }} · {{ $material->thickness_mm }} mm · R$ {{ number_format($material->cost_per_unit, 2, ',', '.') }}/{{ $material->unit }}</span>@empty Nenhum MDF ou acrílico elegível. @endforelse</p></div>
 
     <div class="display-section-title"><h2>2. Medidas e corte</h2><p>Largura e altura formam a área de material. Se a largura não for informada, será estimada pelo comprimento do texto e a proporção média abaixo. O tempo de corte é uma estimativa configurável.</p></div>
@@ -44,4 +51,21 @@
     <label class="display-enable"><input type="checkbox" name="enabled" value="1" @checked(old('enabled', $configurator->enabled))> Publicar o configurador na loja quando estiver completo <x-field-tip text="Quando ativado e com todos os parâmetros válidos, o cliente poderá montar e comprar nomes e textos na loja. Desativado, o configurador não aparece na vitrine."/></label>
     <div class="form-actions"><button class="primary" type="submit">Salvar parâmetros →</button></div>
 </form>
+<script>
+(() => {
+    const create = document.getElementById('textCreateProduct');
+    if (!create) return;
+    const product = document.getElementById('textProductSelect');
+    const name = document.getElementById('textNewProductName');
+    const field = document.getElementById('textNewProductField');
+    const update = () => {
+        product.disabled = create.checked;
+        name.disabled = !create.checked;
+        name.required = create.checked;
+        field.hidden = !create.checked;
+    };
+    create.addEventListener('change', update);
+    update();
+})();
+</script>
 @endsection

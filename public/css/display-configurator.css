@@ -9,3 +9,11 @@
 .text-config-form .display-fields label:hover .field-tip::after,.text-config-form .field-tip:focus::after{opacity:1;visibility:visible}
 .text-config-form .field-tip:focus-visible{outline:2px solid #b78b31;outline-offset:2px}
 .text-config-form .display-enable .field-tip{position:relative;right:auto;top:auto;flex:none}
+.text-config-create-product{margin-top:16px;padding:14px 16px;border:1px solid #dbe5dc;border-radius:7px;background:#f8fbf8}
+.text-config-create-option{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;cursor:pointer}
+.text-config-create-option input{width:16px;height:16px;accent-color:#3e7655}
+.text-config-form .text-config-create-option .field-tip{position:relative;right:auto;top:auto;flex:none}
+.text-config-new-name{display:grid;gap:6px;max-width:430px;margin-top:14px;position:relative;font-size:11px;font-weight:700}
+.text-config-new-name[hidden]{display:none!important}
+.text-config-new-name input{height:39px;padding:8px 10px;border:1px solid #d7e0d9;border-radius:5px;background:#fff;font:12px Arial,sans-serif}
+.text-config-create-product small{display:block;margin-top:9px;color:#607269;font-size:11px;line-height:1.4}

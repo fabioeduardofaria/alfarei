@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\DisplayConfigurator;
 use App\Models\Machine;
 use App\Models\Material;
 use App\Models\OrderItem;
@@ -24,7 +25,7 @@ class TextCutoutConfiguratorTest extends TestCase
         $this->get('/loja/nome-personalizado')->assertNotFound();
         $admin = User::factory()->create(['role' => 'admin']);
         $response = $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertSee('Configurador de nomes e textos');
-        $this->assertSame(21, substr_count($response->getContent(), 'class="field-tip"'));
+        $this->assertSame(23, substr_count($response->getContent(), 'class="field-tip"'));
         $response->assertSee('Ajuda: Tempo estimado para cortar um caractere', false);
         $this->put('/administracao/nomes-textos', $this->settings(['enabled' => 1]))->assertSessionHasErrors('enabled');
         $this->get('/loja/nome-personalizado')->assertNotFound();
@@ -60,6 +61,33 @@ class TextCutoutConfiguratorTest extends TestCase
         $this->assertEquals(0.75, $configurator->fresh()->laser_minutes_per_character_10cm);
         $this->assertTrue($configurator->fresh()->enabled);
         $this->assertEquals(50, $mdf->fresh()->cost_per_unit);
+        $this->get('/loja/nome-personalizado')->assertOk();
+    }
+
+    public function test_admin_cannot_reuse_display_product_and_can_create_a_dedicated_text_product(): void
+    {
+        [$configurator] = $this->configured();
+        $configurator->update(['product_id' => null, 'enabled' => false]);
+        $displayProduct = Product::create(['name' => 'Placa de display', 'type' => 'product', 'base_price' => 0, 'active' => true, 'store_visible' => true, 'made_to_order' => true]);
+        DisplayConfigurator::create(['product_id' => $displayProduct->id]);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->get('/administracao/nomes-textos')->assertOk()->assertDontSee('Placa de display');
+        $this->put('/administracao/nomes-textos', $this->settings([
+            'product_id' => $displayProduct->id, 'laser_machine_id' => $configurator->laser_machine_id,
+        ]))->assertSessionHasErrors('product_id');
+
+        $this->put('/administracao/nomes-textos', $this->settings([
+            'product_id' => $displayProduct->id, 'create_product' => 1,
+            'new_product_name' => 'Nome e texto personalizado',
+            'laser_machine_id' => $configurator->laser_machine_id, 'enabled' => 1,
+        ]))->assertSessionHasNoErrors();
+
+        $newProduct = $configurator->fresh()->product;
+        $this->assertSame('Nome e texto personalizado', $newProduct->name);
+        $this->assertTrue($newProduct->made_to_order);
+        $this->assertTrue($newProduct->store_visible);
+        $this->assertNotEquals($displayProduct->id, $newProduct->id);
         $this->get('/loja/nome-personalizado')->assertOk();
     }
 

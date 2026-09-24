@@ -21,10 +21,12 @@ class TextCutoutConfiguratorController extends Controller
     {
         $configurator = TextCutoutConfigurator::firstOrCreate([]);
         $configurator->load(['product', 'laserMachine']);
+        $displayProductIds = DisplayConfigurator::query()->whereNotNull('product_id')->pluck('product_id');
 
         return view('text-cutout-configurator.edit', [
             'configurator' => $configurator,
-            'products' => Product::where('active', true)->where('store_visible', true)->orderBy('name')->get(),
+            'products' => Product::where('active', true)->where('store_visible', true)->where('made_to_order', true)
+                ->whereNotIn('id', $displayProductIds)->orderBy('name')->get(),
             'machines' => Machine::where('active', true)->orderBy('name')->get(),
             'materials' => $this->pricing->eligibleMaterials(),
             'missing' => $this->pricing->missingRequirements($configurator),
@@ -35,6 +37,8 @@ class TextCutoutConfiguratorController extends Controller
     {
         $data = $request->validate([
             'product_id' => ['nullable', 'exists:products,id'],
+            'create_product' => ['nullable', 'boolean'],
+            'new_product_name' => ['required_if:create_product,1', 'nullable', 'string', 'max:150'],
             'laser_machine_id' => ['nullable', 'exists:machines,id'],
             'max_width_cm' => ['required', 'numeric', 'min:1', 'max:250', 'decimal:0,1'],
             'max_height_cm' => ['required', 'numeric', 'min:1', 'max:250', 'decimal:0,1'],
@@ -55,10 +59,35 @@ class TextCutoutConfiguratorController extends Controller
             'wholesale_margin_percent' => ['nullable', 'numeric', 'min:0', 'max:94'],
             'wholesale_min_quantity' => ['required', 'integer', 'min:1', 'max:100'],
         ]);
-        if (! empty($data['product_id']) && DisplayConfigurator::where('product_id', $data['product_id'])->exists()) {
-            throw ValidationException::withMessages(['product_id' => 'Este produto já está vinculado ao configurador de displays.']);
+        $createProduct = $request->boolean('create_product');
+        if ($createProduct && TextCutoutConfigurator::whereNotNull('product_id')->exists()) {
+            throw ValidationException::withMessages(['create_product' => 'Já existe um produto vinculado a este configurador. Use esse produto ou selecione outro existente.']);
         }
-        DB::transaction(function () use ($data, $request): void {
+        if (! $createProduct && ! empty($data['product_id'])) {
+            if (DisplayConfigurator::where('product_id', $data['product_id'])->exists()) {
+                throw ValidationException::withMessages(['product_id' => 'Este produto pertence ao configurador de displays. Escolha outro ou crie um produto exclusivo abaixo.']);
+            }
+            $product = Product::findOrFail($data['product_id']);
+            if (! $product->active || ! $product->store_visible || ! $product->made_to_order) {
+                throw ValidationException::withMessages(['product_id' => 'Escolha um produto ativo, visível na loja e produzido sob encomenda.']);
+            }
+        }
+        DB::transaction(function () use ($data, $request, $createProduct): void {
+            if ($createProduct) {
+                $product = Product::create([
+                    'name' => trim($data['new_product_name']),
+                    'type' => 'product',
+                    'base_price' => 0,
+                    'production_cost' => 0,
+                    'made_to_order' => true,
+                    'active' => true,
+                    'store_visible' => true,
+                    'allow_personalization' => true,
+                    'description' => 'Nome ou texto recortado sob medida em MDF ou acrílico. O preço é calculado pelo configurador.',
+                ]);
+                $data['product_id'] = $product->id;
+            }
+            unset($data['create_product'], $data['new_product_name']);
             $configurator = TextCutoutConfigurator::firstOrCreate([]);
             $configurator->update($data + ['enabled' => false]);
             if ($request->boolean('enabled')) {
